@@ -3,27 +3,27 @@ use std::{borrow::Cow, str::FromStr};
 mod parse;
 mod value;
 
-type VariableEl = Cow<'static, str>;
+type VariableEl<'a> = Cow<'a, str>;
 
 #[derive(Debug, PartialEq, Eq)]
-enum VariableInner {
-    Segments(Vec<VariableEl>),
-    Single(VariableEl),
+enum VariableInner<'a> {
+    Segments(Vec<VariableEl<'a>>),
+    Single(VariableEl<'a>),
 }
 
 #[repr(transparent)]
 #[derive(Debug, PartialEq, Eq)]
-pub struct Variable {
-    inner: VariableInner,
+pub struct Variable<'a> {
+    inner: VariableInner<'a>,
 }
 
-impl Variable {
-    pub fn single_unchecked(name: impl Into<VariableEl>) -> Self {
+impl<'a> Variable<'a> {
+    pub fn single_unchecked(name: impl Into<VariableEl<'a>>) -> Self {
         Self {
             inner: VariableInner::Single(name.into()),
         }
     }
-    pub fn single(var: impl Into<VariableEl>) -> Self {
+    pub fn single(var: impl Into<VariableEl<'a>>) -> Self {
         let val = var.into();
         assert!(
             !val.contains('.'),
@@ -31,7 +31,7 @@ impl Variable {
         );
         Self::single_unchecked(val)
     }
-    pub fn from_parts(parts: impl IntoIterator<Item = impl Into<VariableEl>>) -> Self {
+    pub fn from_parts(parts: impl IntoIterator<Item = impl Into<VariableEl<'a>>>) -> Self {
         Self {
             inner: VariableInner::Segments(parts.into_iter().map(|p| p.into()).collect()),
         }
@@ -53,7 +53,7 @@ impl std::fmt::Display for VariableParseError {
     }
 }
 
-impl FromStr for Variable {
+impl<'a> FromStr for Variable<'a> {
     type Err = VariableParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
