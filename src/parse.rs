@@ -47,7 +47,7 @@ impl Error {
     }
 }
 
-pub(crate) fn try_parse_variable_segment(input: &[u8]) -> Result<&[u8]> {
+pub(crate) fn try_parse_variable_segment(input: &[u8]) -> Result<(&[u8], usize)> {
     if input.is_empty() {
         return Err(Error::new((0, 0), ErrorType::EmptyVariableSegment));
     }
@@ -63,7 +63,7 @@ pub(crate) fn try_parse_variable_segment(input: &[u8]) -> Result<&[u8]> {
                 } else if let Some(space_offset) = space_pos {
                     Err(Error::new((space_offset, 0), ErrorType::SpaceInPath))
                 } else {
-                    Ok(&input[..offset])
+                    Ok((&input[..offset], offset))
                 };
             }
             '\n' => return Err(Error::new(pos, ErrorType::NewlineInVariableSegment)),
@@ -77,9 +77,9 @@ pub(crate) fn try_parse_variable_segment(input: &[u8]) -> Result<&[u8]> {
         offset += 1;
     }
     if let Some(space_offset) = space_pos {
-        Ok(&input[..space_offset])
+        Ok((&input[..space_offset], offset))
     } else {
-        Ok(input)
+        Ok((input, input.len()))
     }
 }
 
@@ -88,25 +88,28 @@ fn parse_template_inner<'a>(input: &'a [u8]) -> Option<Result<(Variable<'a>, usi
     let mut segments: Vec<&'a str> = Vec::new();
     let mut row = 0;
     let mut col = 0;
+    fn check_end_condition(head: usize, input: &[u8]) -> bool {
+        input[head] as char == '}' && input[head + 1] as char == '}'
+    }
     while head < input.len() {
         if input[head] as char != ' ' {
             let offset = (col as usize, row as usize);
-            if input[head] as char == '}' && input[head + 1] as char == '}' {
+            if check_end_condition(head, input) {
                 if segments.is_empty() {
                     return Some(Err(Error::new(offset, ErrorType::EmptyVariableSegment)));
                 }
-                return Some(Ok((
-                    if segments.len() == 1 {
-                        Variable::single_unchecked(segments.pop().unwrap())
-                    } else {
-                        Variable::from_parts(segments)
-                    },
-                    head + 2,
-                )));
+                return Some(Ok((Variable::from_parts(segments), head + 2)));
             }
-            if let Ok(segment) = try_parse_variable_segment(&input[head..]) {
-                segments.push(str_from_utf8(segment));
-                head += segment.len();
+            if let Ok((segment, len)) = try_parse_variable_segment(&input[head..]) {
+                head += len;
+                if check_end_condition(head, input) {
+                    return Some(Ok((
+                        Variable::single_unchecked(str_from_utf8(segment)),
+                        head + 2,
+                    )));
+                } else {
+                    segments.push(str_from_utf8(segment));
+                }
             }
         }
         head += 1;
@@ -190,19 +193,19 @@ mod tests {
     #[test]
     fn parse_segment_strips_trailing_spaces_in_singleton_case() {
         let r = try_parse_variable_segment("x ".as_bytes());
-        assert_eq!(r, Ok("x".as_bytes()));
+        assert_eq!(r, Ok(("x".as_bytes(), 2)));
     }
     #[test]
     fn parse_segment_parses_no_separator_case() {
         let input = "seg".as_bytes();
         let r = try_parse_variable_segment(input);
-        assert_eq!(r, Ok(input))
+        assert_eq!(r, Ok((input, 3)))
     }
 
     #[test]
     fn parse_segment_parses_with_seperator_returns_up_to_seperator() {
         let input = "seg.part.2".as_bytes();
-        let r = try_parse_variable_segment(input);
+        let r = try_parse_variable_segment(input).map(|(c, _)| c);
         assert_eq!(r, Ok("seg".as_bytes()))
     }
     #[test]
