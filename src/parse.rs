@@ -47,12 +47,11 @@ impl Error {
     }
 }
 
-pub(crate) fn try_parse_variable_segment(input: &[u8]) -> Result<(&[u8], usize)> {
+pub(crate) fn try_parse_variable_segment(input: &[u8]) -> Result<&[u8]> {
     if input.is_empty() {
         return Err(Error::new((0, 0), ErrorType::EmptyVariableSegment));
     }
     let mut offset = 0;
-    let mut space_pos = None;
     while offset < input.len() {
         let ch = input[offset];
         let pos = (offset, 0);
@@ -60,27 +59,17 @@ pub(crate) fn try_parse_variable_segment(input: &[u8]) -> Result<(&[u8], usize)>
             '.' => {
                 return if offset == 0 {
                     Err(Error::new(pos, ErrorType::EmptyVariableSegment))
-                } else if let Some(space_offset) = space_pos {
-                    Err(Error::new((space_offset, 0), ErrorType::SpaceInPath))
                 } else {
-                    Ok((&input[..offset], offset))
+                    Ok(&input[..offset])
                 };
             }
             '\n' => return Err(Error::new(pos, ErrorType::NewlineInVariableSegment)),
-            ' ' => {
-                if space_pos.is_none() {
-                    space_pos.replace(offset);
-                }
-            }
+            ' ' => return Ok(&input[..offset]),
             _ => {}
         }
         offset += 1;
     }
-    if let Some(space_offset) = space_pos {
-        Ok((&input[..space_offset], offset))
-    } else {
-        Ok((input, input.len()))
-    }
+    Ok(input)
 }
 
 fn parse_template_inner<'a>(input: &'a [u8]) -> Option<Result<(Variable<'a>, usize)>> {
@@ -91,7 +80,7 @@ fn parse_template_inner<'a>(input: &'a [u8]) -> Option<Result<(Variable<'a>, usi
     fn check_end_condition(head: usize, input: &[u8]) -> bool {
         input[head] as char == '}' && input[head + 1] as char == '}'
     }
-    while head < input.len() {
+    while head < input.len() - 1 {
         if input[head] as char != ' ' {
             let offset = (col as usize, row as usize);
             if check_end_condition(head, input) {
@@ -100,15 +89,19 @@ fn parse_template_inner<'a>(input: &'a [u8]) -> Option<Result<(Variable<'a>, usi
                 }
                 return Some(Ok((Variable::from_parts(segments), head + 2)));
             }
-            if let Ok((segment, len)) = try_parse_variable_segment(&input[head..]) {
+            if let Ok(segment) = try_parse_variable_segment(&input[head..]) {
+                let segment = str_from_utf8(segment);
+                let len = segment.len();
+                assert!(
+                    head + len < input.len() - 1,
+                    "{head} + {len} >= {input_len} - 1. segment: '{segment}'",
+                    input_len = input.len() - 1,
+                );
                 head += len;
                 if check_end_condition(head, input) {
-                    return Some(Ok((
-                        Variable::single_unchecked(str_from_utf8(segment)),
-                        head + 2,
-                    )));
+                    return Some(Ok((Variable::single_unchecked(segment), head + 2)));
                 } else {
-                    segments.push(str_from_utf8(segment));
+                    segments.push(segment);
                 }
             }
         }
@@ -193,19 +186,19 @@ mod tests {
     #[test]
     fn parse_segment_strips_trailing_spaces_in_singleton_case() {
         let r = try_parse_variable_segment("x ".as_bytes());
-        assert_eq!(r, Ok(("x".as_bytes(), 2)));
+        assert_eq!(r, Ok("x".as_bytes()));
     }
     #[test]
     fn parse_segment_parses_no_separator_case() {
         let input = "seg".as_bytes();
         let r = try_parse_variable_segment(input);
-        assert_eq!(r, Ok((input, 3)))
+        assert_eq!(r, Ok(input))
     }
 
     #[test]
     fn parse_segment_parses_with_seperator_returns_up_to_seperator() {
         let input = "seg.part.2".as_bytes();
-        let r = try_parse_variable_segment(input).map(|(c, _)| c);
+        let r = try_parse_variable_segment(input);
         assert_eq!(r, Ok("seg".as_bytes()))
     }
     #[test]

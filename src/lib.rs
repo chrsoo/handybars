@@ -60,7 +60,8 @@ impl FromStr for Variable<'static> {
         let chars = s.as_bytes();
         match parse::try_parse_variable_segment(chars) {
             Err(e) => Err(e),
-            Ok((seg, len)) => {
+            Ok(seg) => {
+                let len = seg.len();
                 let seg_s = unsafe { std::str::from_utf8_unchecked(seg) };
                 Ok(if len == s.len() {
                     Self::single_unchecked(seg_s.to_owned())
@@ -74,7 +75,8 @@ impl FromStr for Variable<'static> {
                         assert!(head < s.len());
                         match parse::try_parse_variable_segment(&chars[head..]) {
                             Err(e) => return Err(e),
-                            Ok((seg, len)) => {
+                            Ok(seg) => {
+                                let len = seg.len();
                                 segments.push(Cow::Owned(
                                     unsafe { std::str::from_utf8_unchecked(seg) }.to_owned(),
                                 ));
