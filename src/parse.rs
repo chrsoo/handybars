@@ -45,23 +45,28 @@ impl Error {
     }
 }
 
-pub(crate) fn try_parse_variable_segment(input: &[u8]) -> Option<Result<&[u8]>> {
-    for offset in 0..input.len() {
+pub(crate) fn try_parse_variable_segment(input: &[u8]) -> Result<&[u8]> {
+    if input.len() == 0 {
+        return Err(Error::new((0, 0), ErrorType::EmptyVariableSegment));
+    }
+    let mut offset = 0;
+    while offset < input.len() {
         let ch = input[offset];
         let pos = (offset, 0);
         match ch as char {
             '.' => {
-                return Some(if offset == 0 {
+                return if offset == 0 {
                     Err(Error::new(pos, ErrorType::EmptyVariableSegment))
                 } else {
                     Ok(&input[..offset])
-                });
+                };
             }
-            '\n' => return Some(Err(Error::new(pos, ErrorType::NewlineInVariableSegment))),
+            '\n' => return Err(Error::new(pos, ErrorType::NewlineInVariableSegment)),
             _ => {}
         }
+        offset += 1;
     }
-    None
+    Ok(input)
 }
 
 fn parse_template_inner<'a>(input: &'a [u8]) -> Option<Result<(Variable<'a>, usize)>> {
@@ -78,9 +83,8 @@ fn parse_template_inner<'a>(input: &'a [u8]) -> Option<Result<(Variable<'a>, usi
             return Some(Ok((Variable::from_parts(segments), head + 2)));
         }
         match try_parse_variable_segment(&input[head..]) {
-            Some(Ok(segment)) => segments.push(str_from_utf8(segment)),
-            Some(Err(e)) => return Some(Err(e)),
-            None => {}
+            Ok(segment) => segments.push(str_from_utf8(segment)),
+            Err(e) => return Some(Err(e)),
         }
         head += 1;
         col += 1;
@@ -156,14 +160,14 @@ mod tests {
     fn parse_segment_parses_no_separator_case() {
         let input = "seg".as_bytes();
         let r = try_parse_variable_segment(input);
-        assert_eq!(r, Some(Ok(input)))
+        assert_eq!(r, Ok(input))
     }
 
     #[test]
     fn parse_segment_parses_with_seperator_returns_up_to_seperator() {
         let input = "seg.part.2".as_bytes();
         let r = try_parse_variable_segment(input);
-        assert_eq!(r, Some(Ok("seg".as_bytes())))
+        assert_eq!(r, Ok("seg".as_bytes()))
     }
     #[test]
     fn parse_with_equals_works() {
