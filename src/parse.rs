@@ -6,12 +6,14 @@ type Result<T, E = Error> = std::result::Result<T, E>;
 pub enum ErrorType {
     EmptyVariableSegment,
     NewlineInVariableSegment,
+    SpaceInPath,
 }
 impl std::fmt::Display for ErrorType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ErrorType::EmptyVariableSegment => f.write_str("empty variable segment name"),
             ErrorType::NewlineInVariableSegment => f.write_str("newline in variable segment"),
+            ErrorType::SpaceInPath => f.write_str("space in variable path"),
         }
     }
 }
@@ -46,10 +48,11 @@ impl Error {
 }
 
 pub(crate) fn try_parse_variable_segment(input: &[u8]) -> Result<&[u8]> {
-    if input.len() == 0 {
+    if input.is_empty() {
         return Err(Error::new((0, 0), ErrorType::EmptyVariableSegment));
     }
     let mut offset = 0;
+    let mut space_pos = None;
     while offset < input.len() {
         let ch = input[offset];
         let pos = (offset, 0);
@@ -57,16 +60,27 @@ pub(crate) fn try_parse_variable_segment(input: &[u8]) -> Result<&[u8]> {
             '.' => {
                 return if offset == 0 {
                     Err(Error::new(pos, ErrorType::EmptyVariableSegment))
+                } else if let Some(space_offset) = space_pos {
+                    Err(Error::new((space_offset, 0), ErrorType::SpaceInPath))
                 } else {
                     Ok(&input[..offset])
                 };
             }
             '\n' => return Err(Error::new(pos, ErrorType::NewlineInVariableSegment)),
+            ' ' => {
+                if space_pos.is_none() {
+                    space_pos.replace(offset);
+                }
+            }
             _ => {}
         }
         offset += 1;
     }
-    Ok(input)
+    if let Some(space_offset) = space_pos {
+        Ok(&input[..space_offset])
+    } else {
+        Ok(input)
+    }
 }
 
 fn parse_template_inner<'a>(input: &'a [u8]) -> Option<Result<(Variable<'a>, usize)>> {
@@ -75,16 +89,24 @@ fn parse_template_inner<'a>(input: &'a [u8]) -> Option<Result<(Variable<'a>, usi
     let mut row = 0;
     let mut col = 0;
     while head < input.len() {
-        let offset = (col as usize, row as usize);
-        if input[head] as char == '}' && input[head + 1] as char == '}' {
-            if segments.is_empty() {
-                return Some(Err(Error::new(offset, ErrorType::EmptyVariableSegment)));
+        if input[head] as char != ' ' {
+            let offset = (col as usize, row as usize);
+            if input[head] as char == '}' && input[head + 1] as char == '}' {
+                if segments.is_empty() {
+                    return Some(Err(Error::new(offset, ErrorType::EmptyVariableSegment)));
+                }
+                return Some(Ok((Variable::from_parts(segments), head + 2)));
             }
-            return Some(Ok((Variable::from_parts(segments), head + 2)));
-        }
-        match try_parse_variable_segment(&input[head..]) {
-            Ok(segment) => segments.push(str_from_utf8(segment)),
-            Err(e) => return Some(Err(e)),
+            if let Ok(segment) = try_parse_variable_segment(&input[head..]) {
+                segments.push(str_from_utf8(segment));
+                println!(
+                    "head: {head} -> {} ({}) max: {}",
+                    head + segment.len(),
+                    segment.len(),
+                    input.len()
+                );
+                head += segment.len();
+            }
         }
         head += 1;
         col += 1;
@@ -156,6 +178,23 @@ pub enum Token<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parse_segment_errors_on_trailing_spaces_in_the_path_case() {
+        let r = try_parse_variable_segment("x .y".as_bytes());
+        assert_eq!(
+            r,
+            Err(Error {
+                offset: (1, 0),
+                ty: ErrorType::SpaceInPath
+            })
+        );
+    }
+    #[test]
+    fn parse_segment_strips_trailing_spaces_in_singleton_case() {
+        let r = try_parse_variable_segment("x ".as_bytes());
+        assert_eq!(r, Ok("x".as_bytes()));
+    }
     #[test]
     fn parse_segment_parses_no_separator_case() {
         let input = "seg".as_bytes();
@@ -186,23 +225,25 @@ export THING=$SOME_VAR"
             ]
         )
     }
+
     #[test]
     fn parse_template_inner_parses_the_start_of_a_template() {
         let s = "some.txt }}h1";
         let cs = s.as_bytes();
         let (var, offset) = parse_template_inner(cs).unwrap().unwrap();
-        assert_eq!(offset, s.len() - 2);
-        assert_eq!(&var, &Variable::from_parts(["some", "txt"]));
+        assert_eq!(offset, s.len() - 2, "stops at template end");
+        assert_eq!(
+            &var,
+            &Variable::from_parts(["some", "txt"]),
+            "strips spaces"
+        );
     }
     #[test]
     fn parsing_template_extracts_engine_samples() {
         let parsed = tokenize("{{ var }}etc").unwrap();
         assert_eq!(
             parsed.as_slice(),
-            &[
-                Token::Variable(Variable::from_parts(vec!["var".to_owned()])),
-                Token::Str("etc")
-            ]
+            &[Token::Variable(Variable::single("var")), Token::Str("etc")]
         );
     }
 }
