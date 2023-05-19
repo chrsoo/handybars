@@ -2,7 +2,7 @@ use crate::Variable;
 
 type Result<T, E = Error> = std::result::Result<T, E>;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ErrorType {
     EmptyVariableSegment,
     NewlineInVariableSegment,
@@ -16,7 +16,7 @@ impl std::fmt::Display for ErrorType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Error {
     pub offset: (usize, usize),
     pub ty: ErrorType,
@@ -45,7 +45,7 @@ impl Error {
     }
 }
 
-fn try_parse_variable_segment<'a>(input: &'a [u8]) -> Option<Result<&'a [u8]>> {
+pub(crate) fn try_parse_variable_segment<'a>(input: &'a [u8]) -> Option<Result<&'a [u8]>> {
     for offset in 0..input.len() {
         let ch = input[offset];
         let pos = (offset, 0);
@@ -152,6 +152,19 @@ pub enum Token<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn parse_segment_parses_no_separator_case() {
+        let input = "seg".as_bytes();
+        let r = try_parse_variable_segment(input);
+        assert_eq!(r, Some(Ok(input)))
+    }
+
+    #[test]
+    fn parse_segment_parses_with_seperator_returns_up_to_seperator() {
+        let input = "seg.part.2".as_bytes();
+        let r = try_parse_variable_segment(input);
+        assert_eq!(r, Some(Ok("seg".as_bytes())))
+    }
     #[test]
     fn parse_with_equals_works() {
         let s = r"SOME_VAR={{ t1 }}

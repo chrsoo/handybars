@@ -18,6 +18,11 @@ pub struct Variable<'a> {
 }
 
 impl<'a> Variable<'a> {
+    fn from_segments(segments: Vec<VariableEl<'a>>) -> Self {
+        Self {
+            inner: VariableInner::Segments(segments),
+        }
+    }
     pub fn single_unchecked(name: impl Into<VariableEl<'a>>) -> Self {
         Self {
             inner: VariableInner::Single(name.into()),
@@ -36,35 +41,60 @@ impl<'a> Variable<'a> {
             inner: VariableInner::Segments(parts.into_iter().map(|p| p.into()).collect()),
         }
     }
-    pub fn from_string(s: &str) -> Result<Self, <Self as FromStr>::Err> {
-        s.parse()
-    }
 }
 
-pub struct VariableParseError {
-    offset: usize,
-}
-impl std::fmt::Display for VariableParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!(
-            "variable part is empty, at character {}",
-            self.offset
-        ))
-    }
-}
-
-impl<'a> FromStr for Variable<'a> {
-    type Err = VariableParseError;
+impl FromStr for Variable<'static> {
+    type Err = parse::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let segments = s.split('.').collect::<Vec<_>>();
-        let mut offset = 0;
-        for seg in &segments {
-            if seg.is_empty() {
-                return Err(VariableParseError { offset });
-            }
-            offset += seg.len() + 1;
+        if s.is_empty() {
+            return Err(parse::Error::new(
+                (0, 0),
+                parse::ErrorType::EmptyVariableSegment,
+            ));
         }
-        Ok(Self::from_parts(segments.into_iter().map(|s| s.to_owned())))
+        let chars = s.as_bytes();
+        match parse::try_parse_variable_segment(chars) {
+            Some(Err(e)) => Err(e),
+            Some(Ok(seg)) => {
+                let seg_s = unsafe { std::str::from_utf8_unchecked(seg) };
+                Ok(if seg.len() == s.len() {
+                    Self::single_unchecked(seg_s.to_owned())
+                } else {
+                    let mut segments = vec![Cow::Owned(seg_s.to_owned())];
+                    let mut head = seg_s.len();
+                    Self::from_segments(loop {
+                        if head == s.len() {
+                            break segments;
+                        }
+                        assert!(head < s.len());
+                        match parse::try_parse_variable_segment(&chars[head..]) {
+                            Some(Err(e)) => return Err(e),
+                            Some(Ok(seg)) => {
+                                segments.push(Cow::Owned(
+                                    unsafe { std::str::from_utf8_unchecked(seg) }.to_owned(),
+                                ));
+                                head += seg.len();
+                            }
+                            None => {
+                                break segments;
+                            }
+                        }
+                    })
+                })
+            }
+            None => unreachable!(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parsing_variable_from_str_creates_single_if_only_one_element() {
+        let var: Variable = "el".parse().unwrap();
+        assert_eq!(var.inner, VariableInner::Single("el".into()));
     }
 }
