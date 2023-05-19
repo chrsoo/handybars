@@ -160,8 +160,8 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>> {
             head += 1;
         }
     }
-    if tail != head {
-        tokens.push(Token::Str(str_from_utf8(&chars[tail..head])));
+    if tail != input.len() - 1 {
+        tokens.push(Token::Str(str_from_utf8(&chars[tail..])));
     }
     Ok(tokens)
 }
