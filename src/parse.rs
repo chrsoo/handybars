@@ -99,12 +99,6 @@ fn parse_template_inner<'a>(input: &'a [u8]) -> Option<Result<(Variable<'a>, usi
             }
             if let Ok(segment) = try_parse_variable_segment(&input[head..]) {
                 segments.push(str_from_utf8(segment));
-                println!(
-                    "head: {head} -> {} ({}) max: {}",
-                    head + segment.len(),
-                    segment.len(),
-                    input.len()
-                );
                 head += segment.len();
             }
         }
@@ -136,21 +130,17 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>> {
             break;
         }
         let var = if chars[head] as char == '{' && chars[head + 1] as char == '{' {
-            match parse_template_inner(&chars[head + 2..]) {
-                Some(Ok((var, len))) => {
-                    head += len + 2;
-                    Some(var)
-                }
-                Some(Err(e)) => return Err(e.add_offset((pos.0 + 2, pos.1))),
-                None => None,
-            }
+            parse_template_inner(&chars[head + 2..])
+                .transpose()
+                .map_err(|e| e.add_offset((pos.0 + 2, pos.1)))?
         } else {
             None
         };
-        if let Some(var) = var {
+        if let Some((var, len)) = var {
             if tail != head {
                 tokens.push(Token::Str(str_from_utf8(&chars[tail..head])))
             }
+            head += len + 2;
             tail = head;
             tokens.push(Token::Variable(var));
         } else {

@@ -18,16 +18,19 @@ pub struct Variable<'a> {
 }
 
 impl<'a> Variable<'a> {
+    #[must_use]
     fn from_segments(segments: Vec<VariableEl<'a>>) -> Self {
         Self {
             inner: VariableInner::Segments(segments),
         }
     }
+    #[must_use]
     pub fn single_unchecked(name: impl Into<VariableEl<'a>>) -> Self {
         Self {
             inner: VariableInner::Single(name.into()),
         }
     }
+    #[must_use]
     pub fn single(var: impl Into<VariableEl<'a>>) -> Self {
         let val = var.into();
         assert!(
@@ -36,6 +39,7 @@ impl<'a> Variable<'a> {
         );
         Self::single_unchecked(val)
     }
+    #[must_use]
     pub fn from_parts(parts: impl IntoIterator<Item = impl Into<VariableEl<'a>>>) -> Self {
         Self {
             inner: VariableInner::Segments(parts.into_iter().map(|p| p.into()).collect()),
@@ -88,6 +92,11 @@ impl FromStr for Variable<'static> {
 mod tests {
     use super::*;
 
+    #[test]
+    #[should_panic]
+    fn constructing_single_variable_with_path_fails() {
+        let _ = Variable::single("a.b");
+    }
     #[test]
     fn parsing_variable_from_str_creates_single_if_only_one_element() {
         let var: Variable = "el".parse().unwrap();
