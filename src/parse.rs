@@ -95,7 +95,14 @@ fn parse_template_inner<'a>(input: &'a [u8]) -> Option<Result<(Variable<'a>, usi
                 if segments.is_empty() {
                     return Some(Err(Error::new(offset, ErrorType::EmptyVariableSegment)));
                 }
-                return Some(Ok((Variable::from_parts(segments), head + 2)));
+                return Some(Ok((
+                    if segments.len() == 1 {
+                        Variable::single_unchecked(segments.pop().unwrap())
+                    } else {
+                        Variable::from_parts(segments)
+                    },
+                    head + 2,
+                )));
             }
             if let Ok(segment) = try_parse_variable_segment(&input[head..]) {
                 segments.push(str_from_utf8(segment));
