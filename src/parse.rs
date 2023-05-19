@@ -1,3 +1,5 @@
+use crate::Variable;
+
 type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(Debug)]
@@ -120,7 +122,7 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>> {
                 std::mem::swap(&mut tmp, &mut strbuf);
                 tokens.push(Token::Str(tmp));
             }
-            tokens.push(Token::Variable(Variable::new(var)));
+            tokens.push(Token::Variable(Variable::from_parts(var)));
         } else {
             strbuf.push(chars[head]);
             if chars[head] == '\n' {
@@ -179,7 +181,7 @@ export THING=$SOME_VAR"
         assert_eq!(
             parsed.as_slice(),
             &[
-                Token::Variable(Variable::new(vec!["var".to_owned()])),
+                Token::Variable(Variable::from_parts(vec!["var".to_owned()])),
                 Token::Str("etc".to_owned())
             ]
         );

@@ -5,12 +5,14 @@ mod value;
 
 type VariableEl = Cow<'static, str>;
 
+#[derive(Debug, PartialEq, Eq)]
 enum VariableInner {
     Segments(Vec<VariableEl>),
     Single(VariableEl),
 }
 
 #[repr(transparent)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Variable {
     inner: VariableInner,
 }
@@ -42,12 +44,20 @@ impl Variable {
 pub struct VariableParseError {
     offset: usize,
 }
+impl std::fmt::Display for VariableParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "variable part is empty, at character {}",
+            self.offset
+        ))
+    }
+}
 
 impl FromStr for Variable {
     type Err = VariableParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let segments = s.split(".").collect::<Vec<_>>();
+        let segments = s.split('.').collect::<Vec<_>>();
         let mut offset = 0;
         for seg in &segments {
             if seg.is_empty() {
@@ -55,6 +65,6 @@ impl FromStr for Variable {
             }
             offset += seg.len() + 1;
         }
-        Ok(Self::from_parts(segments))
+        Ok(Self::from_parts(segments.into_iter().map(|s| s.to_owned())))
     }
 }
