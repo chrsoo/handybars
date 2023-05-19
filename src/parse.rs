@@ -45,7 +45,7 @@ impl Error {
     }
 }
 
-pub(crate) fn try_parse_variable_segment<'a>(input: &'a [u8]) -> Option<Result<&'a [u8]>> {
+pub(crate) fn try_parse_variable_segment(input: &[u8]) -> Option<Result<&[u8]>> {
     for offset in 0..input.len() {
         let ch = input[offset];
         let pos = (offset, 0);
