@@ -62,7 +62,7 @@ impl<'a> Context<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::value::{Object, Value};
+    use crate::value::{Object};
 
     #[test]
     fn defining_an_object_variable_creates_path() {

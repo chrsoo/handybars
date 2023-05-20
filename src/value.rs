@@ -51,7 +51,7 @@ impl<'a> Value<'a> {
     pub fn to_cow_str(&self) -> Cow<'a, str> {
         match self {
             Value::String(s) => s.clone(),
-            Value::Object(o) => todo!(),
+            Value::Object(_o) => todo!(),
         }
     }
 }

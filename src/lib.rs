@@ -202,7 +202,7 @@ impl FromStr for Variable<'static> {
 
 #[cfg(test)]
 mod tests {
-    use proptest::{prelude::Arbitrary, prop_assert, prop_assert_eq, proptest, strategy::Strategy};
+    use proptest::{prop_assert_eq, proptest};
 
     use super::*;
 
