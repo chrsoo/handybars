@@ -1,8 +1,7 @@
 #![warn(clippy::undocumented_unsafe_blocks)]
 #![warn(clippy::unimplemented)]
 #![warn(missing_docs)]
-
-//!
+#![doc = include_str!("../README.md")]
 
 use std::{borrow::Cow, str::FromStr};
 
@@ -10,7 +9,7 @@ mod context;
 pub mod parse;
 mod value;
 
-pub use context::Context;
+pub use context::{Context, Error};
 pub use value::{Object, Value};
 
 use crate::parse::ErrorKind;

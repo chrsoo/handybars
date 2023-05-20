@@ -14,7 +14,7 @@ pub enum ErrorKind {
     SpaceInPath,
     /// Invalid character encountered
     InvalidCharacter {
-        /// The character
+        #[allow(missing_docs)]
         token: u8,
     },
 }

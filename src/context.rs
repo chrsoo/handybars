@@ -23,8 +23,19 @@ type Result<T, E = Error> = std::result::Result<T, E>;
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     Parse(parse::Error),
-    MissingVariable { name: Variable<'static> },
+    MissingVariable(Variable<'static>),
 }
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::Parse(p) => f.write_fmt(format_args!("parse: {p}")),
+            Error::MissingVariable(var) => {
+                f.write_fmt(format_args!("missing variable in template: '{var}'"))
+            }
+        }
+    }
+}
+
 impl From<parse::Error> for Error {
     fn from(value: parse::Error) -> Self {
         Self::Parse(value)
@@ -51,17 +62,23 @@ impl<'a> Context<'a> {
         }
         self
     }
+    /// Builder version of [`define`](Context::define)
+    pub fn with_define(mut self, var: Variable<'a>, value: impl Into<Value<'a>>) -> Self {
+        self.define(var, value);
+        self
+    }
+
     /// Render a template
     pub fn render<'b>(&self, input: &'b str) -> Result<String> {
         let mut output = String::new();
         for token in Tokenize::<'b>::new(input) {
             let token = token?;
             match token {
-                parse::Token::Variable(v) => {
-                    output.push_str(self.vars.get(&v).ok_or_else(|| Error::MissingVariable {
-                        name: v.into_owned(),
-                    })?)
-                }
+                parse::Token::Variable(v) => output.push_str(
+                    self.vars
+                        .get(&v)
+                        .ok_or_else(|| Error::MissingVariable(v.into_owned()))?,
+                ),
                 parse::Token::Str(s) => {
                     output.push_str(s);
                 }
@@ -102,9 +119,7 @@ mod tests {
         assert_eq!(expanded, "value");
         assert_eq!(
             ctx.render("{{ notexist }}"),
-            Err(Error::MissingVariable {
-                name: Variable::single("notexist")
-            }),
+            Err(Error::MissingVariable(Variable::single("notexist"))),
             "missing defines cause an error"
         );
     }
