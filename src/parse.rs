@@ -1,5 +1,3 @@
-
-
 use crate::Variable;
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -80,7 +78,7 @@ pub(crate) fn try_parse_variable_segment(input: &[u8]) -> Result<&[u8]> {
     Ok(input)
 }
 
-fn parse_template_inner<'a>(input: &'a [u8]) -> Option<Result<(Variable<'a>, usize)>> {
+fn parse_template_inner(input: &[u8]) -> Option<Result<(Variable, usize)>> {
     let mut head = 0;
     while head < input.len() && input[head] as char == ' ' {
         head += 1;

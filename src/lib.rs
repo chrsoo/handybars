@@ -1,7 +1,7 @@
 use std::{borrow::Cow, str::FromStr};
 
 mod context;
-mod parse;
+pub mod parse;
 mod value;
 
 pub use context::Context;
