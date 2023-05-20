@@ -118,7 +118,7 @@ fn str_from_utf8(chars: &[u8]) -> &str {
 ///
 /// ```
 /// # use handybars::{*, parse::*};
-/// let mut tokens = TokenizeIter::new("some {{ text }}");
+/// let mut tokens = Tokenize::new("some {{ text }}");
 /// assert_eq!(tokens.next(), Some(Ok(Token::Str("some "))));
 /// assert_eq!(tokens.next(), Some(Ok(Token::Variable(Variable::single("text")))));
 /// assert_eq!(tokens.next(), None);
@@ -128,12 +128,12 @@ fn str_from_utf8(chars: &[u8]) -> &str {
 ///
 /// ```
 /// # use handybars::{*, parse::*};
-/// let mut tokens = TokenizeIter::new("{{ i.am.invalid. }} I would appear if not for the error");
+/// let mut tokens = Tokenize::new("{{ i.am.invalid. }} I would appear if not for the error");
 /// assert!(matches!(tokens.next(), Some(Err(_))));
 /// assert_eq!(tokens.next(), None);
 /// ```
 ///
-pub struct TokenizeIter<'a> {
+pub struct Tokenize<'a> {
     chars: &'a [u8],
     head: usize,
     tail: usize,
@@ -143,7 +143,7 @@ pub struct TokenizeIter<'a> {
     var_next: Option<Variable<'a>>,
 }
 
-impl<'a> TokenizeIter<'a> {
+impl<'a> Tokenize<'a> {
     pub fn new(input: &'a str) -> Self {
         Self {
             chars: input.as_bytes(),
@@ -157,7 +157,7 @@ impl<'a> TokenizeIter<'a> {
     }
 }
 
-impl<'a> Iterator for TokenizeIter<'a> {
+impl<'a> Iterator for Tokenize<'a> {
     type Item = Result<Token<'a>>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -230,7 +230,7 @@ impl<'a> Iterator for TokenizeIter<'a> {
 }
 
 pub fn tokenize(input: &str) -> Result<Vec<Token>> {
-    TokenizeIter::new(input).collect()
+    Tokenize::new(input).collect()
 }
 
 #[derive(Debug, PartialEq, Eq)]

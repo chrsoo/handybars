@@ -1,7 +1,7 @@
 use std::{borrow::Cow, collections::HashMap};
 
 use crate::{
-    parse::{self, TokenizeIter},
+    parse::{self, Tokenize},
     value::Value,
     Variable,
 };
@@ -42,7 +42,7 @@ impl<'a> Context<'a> {
     }
     pub fn render<'b>(&self, input: &'b str) -> Result<String> {
         let mut output = String::new();
-        for token in TokenizeIter::<'b>::new(input) {
+        for token in Tokenize::<'b>::new(input) {
             let token = token?;
             match token {
                 parse::Token::Variable(v) => {
@@ -62,7 +62,7 @@ impl<'a> Context<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::value::{Object};
+    use crate::value::Object;
 
     #[test]
     fn defining_an_object_variable_creates_path() {
