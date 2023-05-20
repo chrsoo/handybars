@@ -113,7 +113,7 @@ fn str_from_utf8(chars: &[u8]) -> &str {
 
 /// Tokenization iterator
 ///
-/// This exists to allow true zero-allocation tokenization. See [`tokenize`](parse::tokenize) for
+/// This exists to allow true zero-allocation tokenization. See [`tokenize`](crate::parse::tokenize) for
 /// a version of this which gives you a vector and result.
 ///
 /// ```
@@ -229,6 +229,7 @@ impl<'a> Iterator for Tokenize<'a> {
     }
 }
 
+/// Tokenize an input with allocation
 pub fn tokenize(input: &str) -> Result<Vec<Token>> {
     Tokenize::new(input).collect()
 }

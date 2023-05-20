@@ -6,6 +6,14 @@ use crate::{
     Variable,
 };
 
+/// Context for expanding templates
+///
+/// ```
+/// # use handybars::*;
+/// let mut ctx = Context::new();
+/// ctx.define(Variable::single("a"), "b");
+/// assert_eq!(ctx.render("{{ a }}"), Ok("b".to_owned()));
+/// ```
 #[derive(Debug, Default)]
 pub struct Context<'a> {
     vars: HashMap<Variable<'a>, Cow<'a, str>>,
@@ -27,6 +35,8 @@ impl<'a> Context<'a> {
     pub fn new() -> Self {
         Self::default()
     }
+    /// Map a variable to a value for template expansion
+    ///
     pub fn define(&mut self, var: Variable<'a>, value: impl Into<Value<'a>>) -> &mut Self {
         match value.into() {
             Value::Object(obj) => {
@@ -40,6 +50,7 @@ impl<'a> Context<'a> {
         }
         self
     }
+    /// Render a template
     pub fn render<'b>(&self, input: &'b str) -> Result<String> {
         let mut output = String::new();
         for token in Tokenize::<'b>::new(input) {

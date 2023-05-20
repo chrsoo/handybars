@@ -27,6 +27,14 @@ impl<'a> VariableInner<'a> {
     }
 }
 
+/// Variable that can be used in templates
+///
+/// A variable is a series of non-empty strings seperated by `.`
+///
+/// The lifetime specifier is used to allow variables
+/// which do not own all of their parts. To get a variable
+/// that _does_ own everything see [`into_owned`](Variable::into_owned)
+///
 #[repr(transparent)]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Variable<'a> {
@@ -34,17 +42,27 @@ pub struct Variable<'a> {
 }
 
 impl<'a> Variable<'a> {
+    /// Convert a variable into one which owns all of its parts
     #[must_use]
     pub fn into_owned(self) -> Variable<'static> {
         Variable {
             inner: self.inner.into_owned(),
         }
     }
+    /// Length of the variable in bytes, including seperators
+    ///
+    /// ```
+    /// # use handybars::Variable;
+    /// # use std::str::FromStr;
+    /// let s = "a.b.c";
+    /// let var = Variable::from_str(s).unwrap();
+    /// assert_eq!(var.len(), s.len());
+    /// ```
     #[must_use]
     #[allow(clippy::len_without_is_empty)] // impossible for variable to be empty
     pub fn len(&self) -> usize {
         match &self.inner {
-            VariableInner::Segments(s) => s.iter().map(|s| s.len()).sum(),
+            VariableInner::Segments(s) => s.iter().map(|s| s.len()).sum::<usize>() + (s.len() - 1),
             VariableInner::Single(s) => s.len(),
         }
     }
@@ -60,6 +78,9 @@ impl<'a> Variable<'a> {
             inner: VariableInner::Single(name.into()),
         }
     }
+    /// Construct a variable out of a single element
+    ///
+    /// Panics: If given a string which contains `'.'`
     #[must_use]
     pub fn single(var: impl Into<VariableEl<'a>>) -> Self {
         let val = var.into();
@@ -69,6 +90,9 @@ impl<'a> Variable<'a> {
         );
         Self::single_unchecked(val)
     }
+    /// Construct a variable from parts individually
+    ///
+    /// Panics: If any string in `parts` is empty
     #[must_use]
     pub fn from_parts(parts: impl IntoIterator<Item = impl Into<VariableEl<'a>>>) -> Self {
         Self {
@@ -81,6 +105,13 @@ impl<'a> Variable<'a> {
             ),
         }
     }
+    /// Join together two variables
+    ///
+    /// ```
+    /// # use handybars::Variable;
+    /// let var = Variable::single("a").join(Variable::single("b"));
+    /// assert_eq!(&var.to_string(), "a.b");
+    /// ```
     #[must_use]
     pub fn join(self, other: Self) -> Self {
         match self.inner {
@@ -101,6 +132,14 @@ impl<'a> Variable<'a> {
                 }
                 VariableInner::Single(y) => Self::from_segments(vec![s, y]),
             },
+        }
+    }
+}
+impl<'a> std::fmt::Display for Variable<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.inner {
+            VariableInner::Segments(s) => f.write_str(&s.join(".")),
+            VariableInner::Single(s) => f.write_str(s),
         }
     }
 }
