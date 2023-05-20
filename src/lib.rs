@@ -83,12 +83,6 @@ fn parse_with_terminator<F: Fn(u8) -> bool>(
     valid_pred: F,
     error_if_invalid: bool,
 ) -> Result<Variable<'static>, parse::Error> {
-    if s.is_empty() {
-        return Err(parse::Error::new(
-            (0, 0),
-            parse::ErrorType::EmptyVariableSegment,
-        ));
-    }
     let chars = s.as_bytes();
     let valid_len = {
         let mut head = 0;
@@ -103,6 +97,12 @@ fn parse_with_terminator<F: Fn(u8) -> bool>(
             parse::ErrorType::InvalidCharacter {
                 token: chars[valid_len],
             },
+        ));
+    }
+    if valid_len == 0 {
+        return Err(parse::Error::new(
+            (0, 0),
+            parse::ErrorType::EmptyVariableSegment,
         ));
     }
 

@@ -87,7 +87,7 @@ fn parse_template_inner<'a>(input: &'a [u8]) -> Option<Result<(Variable<'a>, usi
     }
     let var = match super::parse_with_terminator(
         str_from_utf8(&input[head..]),
-        |ch| ch as char == '}',
+        |ch| ch as char != '}',
         false,
     ) {
         Ok(v) => v,
