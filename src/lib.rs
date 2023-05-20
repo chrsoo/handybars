@@ -219,10 +219,7 @@ fn parse_with_terminator(
                         if chars[head] as char == '.' {
                             let orig_head = head;
                             head += 1;
-                            while head < chars.len() && chars[head] as char == ' ' {
-                                head += 1;
-                            }
-                            if head == valid_len {
+                            if head == valid_len || chars[head] as char == ' ' {
                                 return Err(parse::Error::new(
                                     (orig_head, 0),
                                     ErrorKind::EmptyVariableSegment,
