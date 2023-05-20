@@ -4,6 +4,9 @@ mod context;
 mod parse;
 mod value;
 
+pub use context::Context;
+pub use value::{Object, Value};
+
 type VariableEl<'a> = Cow<'a, str>;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
