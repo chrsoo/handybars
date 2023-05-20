@@ -224,12 +224,12 @@ mod tests {
 
     proptest! {
         #[test]
-        fn parsing_variable_from_ascii_works(input in r"([[:alpha:]]\d)+(\.([[[:alpha:]]\d])+)*[ ]*}") {
+        fn parsing_variable_from_ascii_works(input in r"([[:alpha:]]\d)+(\.([[[:alpha:]]\d])+)*[ ]*") {
             let (var, expected) = run_parsing_variable_test(&input);
             prop_assert_eq!(var, Ok(expected));
         }
         #[test]
-        fn parsing_variable_from_unicode_works(input in r"([[[:alpha:]]~~[\p{Alphabetic}\d]])+(\.([[[:alpha:]]~~[\p{Alphabetic}\d]])+)*[ ]*}") {
+        fn parsing_variable_from_unicode_works(input in r"([[[:alpha:]]~~[\p{Alphabetic}\d]])+(\.([[[:alpha:]]~~[\p{Alphabetic}\d]])+)*[ ]*") {
             let (var, expected) = run_parsing_variable_test(&input);
             prop_assert_eq!(var, Ok(expected));
         }
