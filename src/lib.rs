@@ -153,16 +153,18 @@ impl<'a> std::fmt::Display for Variable<'a> {
     }
 }
 
-fn parse_with_terminator<F: Fn(u8) -> bool>(
+fn parse_with_terminator(
     s: &str,
-    valid_pred: F,
     error_if_invalid: bool,
 ) -> Result<Variable<'static>, parse::Error> {
     let chars = s.as_bytes();
 
     let valid_len = {
         let mut head = 0;
-        while head < chars.len() && valid_pred(chars[head]) {
+        while head < chars.len() && {
+            let ch = chars[head];
+            parse::is_valid_identifier_ch(ch) || ch as char == ' ' || ch as char == '.'
+        } {
             head += 1;
         }
         head
@@ -253,11 +255,7 @@ impl FromStr for Variable<'static> {
     type Err = parse::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        parse_with_terminator(
-            s,
-            |ch| parse::is_valid_variable_name_ch(ch) || ch as char == ' ' || ch as char == '.',
-            true,
-        )
+        parse_with_terminator(s, true)
     }
 }
 
@@ -314,6 +312,17 @@ mod tests {
             Err(parse::Error::new(
                 (1, 0),
                 parse::ErrorKind::EmptyVariableSegment
+            ))
+        );
+    }
+
+    #[test]
+    fn parsing_variable_with_multiple_variables_space_seperated_fails() {
+        assert_eq!(
+            Variable::from_str("a.b c.d"),
+            Err(parse::Error::new(
+                (4, 0),
+                ErrorKind::TooManyVariablesInBlock
             ))
         );
     }

@@ -17,6 +17,8 @@ pub enum ErrorKind {
         #[allow(missing_docs)]
         token: u8,
     },
+    /// More than 1 variable in a template (`{{ ... }}`) block
+    TooManyVariablesInBlock,
 }
 impl std::fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -26,6 +28,9 @@ impl std::fmt::Display for ErrorKind {
             ErrorKind::SpaceInPath => f.write_str("space in variable path"),
             ErrorKind::InvalidCharacter { token } => {
                 f.write_fmt(format_args!("invalid character: '{token}'"))
+            }
+            ErrorKind::TooManyVariablesInBlock => {
+                f.write_str("more than 1 variable in template block")
             }
         }
     }
@@ -66,8 +71,37 @@ impl Error {
         self
     }
 }
-pub(crate) fn is_valid_variable_name_ch(ch: u8) -> bool {
-    !(ch.is_ascii_punctuation() || ch.is_ascii_control() || ch.is_ascii_whitespace())
+pub(crate) fn is_valid_identifier_ch(ch: u8) -> bool {
+    !(ch.is_ascii_whitespace()
+        || matches!(
+            ch as char,
+            '!' | '"'
+                | '#'
+                | '%'
+                | '&'
+                | '\''
+                | '('
+                | ')'
+                | '*'
+                | '+'
+                | '|'
+                | '.'
+                | '/'
+                | ';'
+                | '<'
+                | '='
+                | '>'
+                | '@'
+                | '['
+                | ']'
+                | '\\'
+                | '^'
+                | '`'
+                | '{'
+                | '}'
+                | ','
+                | '~'
+        ))
 }
 
 pub(crate) fn try_parse_variable_segment(input: &[u8]) -> Result<&[u8]> {
@@ -80,7 +114,7 @@ pub(crate) fn try_parse_variable_segment(input: &[u8]) -> Result<&[u8]> {
         let pos = (offset, 0);
         match ch as char {
             '\n' => return Err(Error::new(pos, ErrorKind::NewlineInVariableSegment)),
-            _ if !is_valid_variable_name_ch(ch) => {
+            _ if !is_valid_identifier_ch(ch) => {
                 return if offset == 0 {
                     Err(Error::new(pos, ErrorKind::EmptyVariableSegment))
                 } else {
@@ -99,11 +133,7 @@ fn parse_template_inner(input: &[u8]) -> Option<Result<(Variable, usize)>> {
     while head < input.len() && input[head] as char == ' ' {
         head += 1;
     }
-    let var = match super::parse_with_terminator(
-        str_from_utf8(&input[head..]),
-        |ch| ch as char != '}',
-        false,
-    ) {
+    let var = match super::parse_with_terminator(str_from_utf8(&input[head..]), false) {
         Ok(v) => v,
         Err(Error {
             ty: ErrorKind::EmptyVariableSegment,

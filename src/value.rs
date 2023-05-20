@@ -12,15 +12,27 @@ impl<'a> Object<'a> {
         Self::default()
     }
     /// Add a property to an object
+    ///
+    /// Panics: if name contains a `.`
+    ///
+    /// ```should_panic
+    /// # use handybars::Object;
+    /// let mut obj = Object::new();
+    /// obj.add_property("a.b", "c"); // boom
+    /// ```
     pub fn add_property(
         &mut self,
         name: impl Into<Cow<'a, str>>,
         value: impl Into<Value<'a>>,
     ) -> &mut Self {
-        self.values.insert(name.into(), value.into());
+        let name = name.into();
+        assert!(!name.contains('.'), "property name may not contain dots");
+        self.values.insert(name, value.into());
         self
     }
-    /// Add a property with builder sytnax
+    /// Add a property with builder syntax
+    ///
+    /// Panics: if name contains a '.'
     pub fn with_property(
         mut self,
         name: impl Into<Cow<'a, str>>,

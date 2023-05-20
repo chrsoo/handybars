@@ -4,7 +4,8 @@
 
 This is a small library for template expansion. The syntax is based on
 handlebars, but it _only_ support expansion of variables. No `#if` or `#each`,
-only `{{ variable }}`.
+only `{{ variable }}`. If you need actual handlebars support consider the
+[handlebars](https://lib.rs/crates/handlebars) crate.
 
 It has no dependencies and is designed to have a very simple API.
 
