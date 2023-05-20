@@ -30,8 +30,8 @@ impl<'a> Context<'a> {
     pub fn define(&mut self, var: Variable<'a>, value: impl Into<Value<'a>>) -> &mut Self {
         match value.into() {
             Value::Object(obj) => {
-                for (var, c) in obj.values {
-                    self.define(var Variable::single(var), c);
+                for (v, c) in obj.values {
+                    self.define(var.clone().join(Variable::single(v)), c);
                 }
             }
             Value::String(s) => {
