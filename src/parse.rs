@@ -100,6 +100,8 @@ fn parse_template_inner<'a>(input: &'a [u8]) -> Option<Result<(Variable<'a>, usi
                 head += len;
                 if check_end_condition(head, input) {
                     return Some(Ok((Variable::single_unchecked(segment), head + 2)));
+                } else if input[len] as char == ' ' {
+                    return Some(Err(Error::new((head, 0), ErrorType::SpaceInPath)));
                 } else {
                     segments.push(segment);
                 }
@@ -173,8 +175,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_segment_errors_on_trailing_spaces_in_the_path_case() {
-        let r = try_parse_variable_segment("x .y".as_bytes());
+    fn parse_template_inner_errors_with_space_in_path() {
+        let r = parse_template_inner("x .y}}".as_bytes()).unwrap();
         assert_eq!(
             r,
             Err(Error {

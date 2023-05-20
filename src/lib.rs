@@ -65,6 +65,8 @@ impl FromStr for Variable<'static> {
                 let seg_s = unsafe { std::str::from_utf8_unchecked(seg) };
                 Ok(if len == s.len() {
                     Self::single_unchecked(seg_s.to_owned())
+                } else if chars[len] as char == ' ' {
+                    return Err(parse::Error::new((len, 0), parse::ErrorType::SpaceInPath));
                 } else {
                     let mut segments = vec![Cow::Owned(seg_s.to_owned())];
                     let mut head = seg_s.len();
@@ -94,6 +96,14 @@ impl FromStr for Variable<'static> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn parsing_variable_from_str_errors_if_space_in_path() {
+        let var = Variable::from_str("a .b");
+        assert_eq!(
+            var,
+            Err(parse::Error::new((1, 0), parse::ErrorType::SpaceInPath))
+        );
+    }
     #[test]
     #[should_panic]
     fn constructing_single_variable_with_path_fails() {
