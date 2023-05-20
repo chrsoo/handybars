@@ -3,12 +3,20 @@ use crate::Variable;
 
 type Result<T, E = Error> = std::result::Result<T, E>;
 
+/// Kind of error reported by parsers
 #[derive(Debug, PartialEq, Eq)]
 pub enum ErrorKind {
+    /// Variable segment is empty
     EmptyVariableSegment,
+    /// Newline within a path variable
     NewlineInVariableSegment,
+    /// Space inside path variable (variable with at least one `.`)
     SpaceInPath,
-    InvalidCharacter { token: u8 },
+    /// Invalid character encountered
+    InvalidCharacter {
+        /// The character
+        token: u8,
+    },
 }
 impl std::fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -23,9 +31,14 @@ impl std::fmt::Display for ErrorKind {
     }
 }
 
+/// Type for errors reported by parsing
 #[derive(Debug, PartialEq, Eq)]
 pub struct Error {
+    /// Offset into source for error
+    ///
+    /// First is column, second is row
     pub offset: (usize, usize),
+    /// Type of error
     pub ty: ErrorKind,
 }
 impl std::fmt::Display for Error {
@@ -42,9 +55,11 @@ impl std::fmt::Display for Error {
 }
 
 impl Error {
+    /// Construct a new error with offset and kind
     pub fn new(offset: (usize, usize), ty: ErrorKind) -> Self {
         Self { offset, ty }
     }
+    /// Add offset to existing error
     pub fn add_offset(mut self, offset: (usize, usize)) -> Self {
         self.offset.0 += offset.0;
         self.offset.1 += offset.1;
@@ -108,7 +123,7 @@ fn parse_template_inner(input: &[u8]) -> Option<Result<(Variable, usize)>> {
     }
     None
 }
-fn str_from_utf8(chars: &[u8]) -> &str {
+pub(crate) fn str_from_utf8(chars: &[u8]) -> &str {
     std::str::from_utf8(chars).expect("This should never be hit, its a bug please investigate me")
 }
 
@@ -145,6 +160,7 @@ pub struct Tokenize<'a> {
 }
 
 impl<'a> Tokenize<'a> {
+    /// Construct a new Tokenize iterator on a given input
     pub fn new(input: &'a str) -> Self {
         Self {
             chars: input.as_bytes(),
@@ -235,9 +251,12 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>> {
     Tokenize::new(input).collect()
 }
 
+/// Type for tokens emitted by the parser
 #[derive(Debug, PartialEq, Eq)]
 pub enum Token<'a> {
+    /// Variable for later expansion
     Variable(Variable<'a>),
+    /// Untemplated string input
     Str(&'a str),
 }
 

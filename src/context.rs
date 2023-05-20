@@ -32,6 +32,7 @@ impl From<parse::Error> for Error {
 }
 
 impl<'a> Context<'a> {
+    /// Create a new context with no variables defined
     pub fn new() -> Self {
         Self::default()
     }

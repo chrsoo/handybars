@@ -1,14 +1,17 @@
 use std::{borrow::Cow, collections::BTreeMap};
 
+/// Object value with 0 or more properties
 #[derive(Clone, Debug, Default)]
 pub struct Object<'a> {
     pub(crate) values: BTreeMap<Cow<'a, str>, Value<'a>>,
 }
 
 impl<'a> Object<'a> {
+    /// Construct a new object with no properties
     pub fn new() -> Self {
         Self::default()
     }
+    /// Add a property to an object
     pub fn add_property(
         &mut self,
         name: impl Into<Cow<'a, str>>,
@@ -17,6 +20,7 @@ impl<'a> Object<'a> {
         self.values.insert(name.into(), value.into());
         self
     }
+    /// Add a property with builder sytnax
     pub fn with_property(
         mut self,
         name: impl Into<Cow<'a, str>>,
@@ -27,9 +31,12 @@ impl<'a> Object<'a> {
     }
 }
 
+/// Value that variables can be expanded to
 #[derive(Clone, Debug)]
 pub enum Value<'a> {
+    /// Simple string substitution
     String(Cow<'a, str>),
+    /// Object with additional level of path
     Object(Object<'a>),
 }
 impl<'a> From<Object<'a>> for Value<'a> {
@@ -47,11 +54,4 @@ impl<'a> From<&'a str> for Value<'a> {
         Self::String(value.into())
     }
 }
-impl<'a> Value<'a> {
-    pub fn to_cow_str(&self) -> Cow<'a, str> {
-        match self {
-            Value::String(s) => s.clone(),
-            Value::Object(_o) => todo!(),
-        }
-    }
-}
+impl<'a> Value<'a> {}

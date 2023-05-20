@@ -187,7 +187,7 @@ fn parse_with_terminator<F: Fn(u8) -> bool>(
         Err(e) => Err(e),
         Ok(seg) => {
             let len = seg.len();
-            let seg_s = unsafe { std::str::from_utf8_unchecked(seg) };
+            let seg_s = parse::str_from_utf8(seg);
             #[allow(clippy::blocks_in_if_conditions)]
             Ok(
                 if {
@@ -234,9 +234,7 @@ fn parse_with_terminator<F: Fn(u8) -> bool>(
                             Err(e) => return Err(e.add_offset((head, 0))),
                             Ok(seg) => {
                                 let len = seg.len();
-                                segments.push(Cow::Owned(
-                                    unsafe { std::str::from_utf8_unchecked(seg) }.to_owned(),
-                                ));
+                                segments.push(Cow::Owned(parse::str_from_utf8(seg).to_owned()));
                                 head += len;
                             }
                         }
