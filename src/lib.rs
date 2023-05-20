@@ -1,5 +1,6 @@
 use std::{borrow::Cow, str::FromStr};
 
+mod context;
 mod parse;
 mod value;
 
@@ -18,6 +19,7 @@ pub struct Variable<'a> {
 }
 
 impl<'a> Variable<'a> {
+    #[must_use]
     #[allow(clippy::len_without_is_empty)] // impossible for variable to be empty
     pub fn len(&self) -> usize {
         match &self.inner {
@@ -32,7 +34,7 @@ impl<'a> Variable<'a> {
         }
     }
     #[must_use]
-    pub fn single_unchecked(name: impl Into<VariableEl<'a>>) -> Self {
+    fn single_unchecked(name: impl Into<VariableEl<'a>>) -> Self {
         Self {
             inner: VariableInner::Single(name.into()),
         }
@@ -65,11 +67,13 @@ impl FromStr for Variable<'static> {
             ));
         }
         let chars = s.as_bytes();
+
         match parse::try_parse_variable_segment(chars) {
             Err(e) => Err(e),
             Ok(seg) => {
                 let len = seg.len();
                 let seg_s = unsafe { std::str::from_utf8_unchecked(seg) };
+                #[allow(clippy::blocks_in_if_conditions)]
                 Ok(if len == s.len() {
                     Self::single_unchecked(seg_s.to_owned())
                 } else if {
