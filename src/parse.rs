@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use crate::Variable;
 
 type Result<T, E = Error> = std::result::Result<T, E>;
@@ -56,20 +58,17 @@ pub(crate) fn try_parse_variable_segment(input: &[u8]) -> Result<&[u8]> {
         let ch = input[offset];
         let pos = (offset, 0);
         match ch as char {
-            '.' => {
-                return if offset == 0 {
-                    Err(Error::new(pos, ErrorType::EmptyVariableSegment))
-                } else {
-                    Ok(&input[..offset])
-                };
-            }
             '\n' => return Err(Error::new(pos, ErrorType::NewlineInVariableSegment)),
             _ if ch.is_ascii_punctuation()
                 || ch.is_ascii_digit()
                 || ch.is_ascii_control()
                 || ch.is_ascii_graphic() =>
             {
-                return Ok(&input[..offset])
+                return if offset == 0 {
+                    Err(Error::new(pos, ErrorType::EmptyVariableSegment))
+                } else {
+                    Ok(&input[..offset])
+                };
             }
             _ => {}
         }
@@ -79,55 +78,24 @@ pub(crate) fn try_parse_variable_segment(input: &[u8]) -> Result<&[u8]> {
 }
 
 fn parse_template_inner<'a>(input: &'a [u8]) -> Option<Result<(Variable<'a>, usize)>> {
-    let mut head = 0;
-    let mut segments: Vec<&'a str> = Vec::new();
-    let mut row = 0;
-    let mut col = 0;
+    let var = match Variable::from_str(str_from_utf8(input)) {
+        Ok(v) => v,
+        Err(e) => return Some(Err(e)),
+    };
+    let mut head = var.len();
     fn check_end_condition(head: usize, input: &[u8]) -> bool {
         input[head] as char == '}' && input[head + 1] as char == '}'
     }
     while head < input.len() - 1 {
-        if input[head] as char != ' ' {
-            let offset = (col as usize, row as usize);
-            if check_end_condition(head, input) {
-                if segments.is_empty() {
-                    return Some(Err(Error::new(offset, ErrorType::EmptyVariableSegment)));
-                }
-                return Some(Ok((Variable::from_parts(segments), head + 2)));
-            }
-            if let Ok(segment) = try_parse_variable_segment(&input[head..]) {
-                let segment = str_from_utf8(segment);
-                let len = segment.len();
-                assert!(
-                    head + len < input.len() - 1,
-                    "{head} + {len} >= {input_len} - 1. segment: '{segment}'",
-                    input_len = input.len() - 1,
-                );
-                head += len;
-                let old_head = head;
-                while head < input.len() {
-                    if input[head] as char == ' ' {
-                        head += 1;
-                    } else {
-                        break;
-                    }
-                }
-                if segments.is_empty() && check_end_condition(head, input) {
-                    return Some(Ok((Variable::single_unchecked(segment), head + 2)));
-                } else if input[len] as char == ' ' {
-                    return Some(Err(Error::new((old_head, 0), ErrorType::SpaceInPath)));
-                } else {
-                    segments.push(segment);
-                }
-            }
+        if check_end_condition(head, input) {
+            return Some(Ok((var, head)));
         }
         head += 1;
-        col += 1;
     }
     None
 }
 fn str_from_utf8(chars: &[u8]) -> &str {
-    std::str::from_utf8(&chars).expect("This should never be hit, its a bug please investigate me")
+    std::str::from_utf8(chars).expect("This should never be hit, its a bug please investigate me")
 }
 
 pub fn tokenize(input: &str) -> Result<Vec<Token>> {

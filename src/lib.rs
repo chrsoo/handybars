@@ -18,6 +18,13 @@ pub struct Variable<'a> {
 }
 
 impl<'a> Variable<'a> {
+    #[allow(clippy::len_without_is_empty)] // impossible for variable to be empty
+    pub fn len(&self) -> usize {
+        match &self.inner {
+            VariableInner::Segments(s) => s.iter().map(|s| s.len()).sum(),
+            VariableInner::Single(s) => s.len(),
+        }
+    }
     #[must_use]
     fn from_segments(segments: Vec<VariableEl<'a>>) -> Self {
         Self {
