@@ -6,14 +6,14 @@ mod value;
 
 type VariableEl<'a> = Cow<'a, str>;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 enum VariableInner<'a> {
     Segments(Vec<VariableEl<'a>>),
     Single(VariableEl<'a>),
 }
 
 #[repr(transparent)]
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Variable<'a> {
     inner: VariableInner<'a>,
 }
