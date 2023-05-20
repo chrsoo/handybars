@@ -1,21 +1,22 @@
+//!
 use crate::Variable;
 
 type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum ErrorType {
+pub enum ErrorKind {
     EmptyVariableSegment,
     NewlineInVariableSegment,
     SpaceInPath,
     InvalidCharacter { token: u8 },
 }
-impl std::fmt::Display for ErrorType {
+impl std::fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ErrorType::EmptyVariableSegment => f.write_str("empty variable segment name"),
-            ErrorType::NewlineInVariableSegment => f.write_str("newline in variable segment"),
-            ErrorType::SpaceInPath => f.write_str("space in variable path"),
-            ErrorType::InvalidCharacter { token } => {
+            ErrorKind::EmptyVariableSegment => f.write_str("empty variable segment name"),
+            ErrorKind::NewlineInVariableSegment => f.write_str("newline in variable segment"),
+            ErrorKind::SpaceInPath => f.write_str("space in variable path"),
+            ErrorKind::InvalidCharacter { token } => {
                 f.write_fmt(format_args!("invalid character: '{token}'"))
             }
         }
@@ -25,7 +26,7 @@ impl std::fmt::Display for ErrorType {
 #[derive(Debug, PartialEq, Eq)]
 pub struct Error {
     pub offset: (usize, usize),
-    pub ty: ErrorType,
+    pub ty: ErrorKind,
 }
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -41,7 +42,7 @@ impl std::fmt::Display for Error {
 }
 
 impl Error {
-    pub fn new(offset: (usize, usize), ty: ErrorType) -> Self {
+    pub fn new(offset: (usize, usize), ty: ErrorKind) -> Self {
         Self { offset, ty }
     }
     pub fn add_offset(mut self, offset: (usize, usize)) -> Self {
@@ -56,17 +57,17 @@ pub(crate) fn is_valid_variable_name_ch(ch: u8) -> bool {
 
 pub(crate) fn try_parse_variable_segment(input: &[u8]) -> Result<&[u8]> {
     if input.is_empty() {
-        return Err(Error::new((0, 0), ErrorType::EmptyVariableSegment));
+        return Err(Error::new((0, 0), ErrorKind::EmptyVariableSegment));
     }
     let mut offset = 0;
     while offset < input.len() {
         let ch = input[offset];
         let pos = (offset, 0);
         match ch as char {
-            '\n' => return Err(Error::new(pos, ErrorType::NewlineInVariableSegment)),
+            '\n' => return Err(Error::new(pos, ErrorKind::NewlineInVariableSegment)),
             _ if !is_valid_variable_name_ch(ch) => {
                 return if offset == 0 {
-                    Err(Error::new(pos, ErrorType::EmptyVariableSegment))
+                    Err(Error::new(pos, ErrorKind::EmptyVariableSegment))
                 } else {
                     Ok(&input[..offset])
                 };
@@ -90,7 +91,7 @@ fn parse_template_inner(input: &[u8]) -> Option<Result<(Variable, usize)>> {
     ) {
         Ok(v) => v,
         Err(Error {
-            ty: ErrorType::EmptyVariableSegment,
+            ty: ErrorKind::EmptyVariableSegment,
             offset: (0, 0),
         }) => return None,
         Err(e) => return Some(Err(e.add_offset((head, 0)))),
@@ -253,7 +254,7 @@ mod tests {
             r,
             Err(Error {
                 offset: (1, 0),
-                ty: ErrorType::SpaceInPath
+                ty: ErrorKind::SpaceInPath
             })
         );
     }
@@ -275,7 +276,7 @@ mod tests {
         let tokens = tokenize("{{invalid. }} some text");
         assert_eq!(
             tokens,
-            Err(Error::new((9, 0), ErrorType::EmptyVariableSegment))
+            Err(Error::new((9, 0), ErrorKind::EmptyVariableSegment))
         );
     }
 

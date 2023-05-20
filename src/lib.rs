@@ -1,3 +1,9 @@
+#![warn(clippy::undocumented_unsafe_blocks)]
+#![warn(clippy::unimplemented)]
+#![warn(missing_docs)]
+
+//!
+
 use std::{borrow::Cow, str::FromStr};
 
 mod context;
@@ -7,7 +13,7 @@ mod value;
 pub use context::Context;
 pub use value::{Object, Value};
 
-use crate::parse::ErrorType;
+use crate::parse::ErrorKind;
 
 type VariableEl<'a> = Cow<'a, str>;
 
@@ -80,13 +86,17 @@ impl<'a> Variable<'a> {
     }
     /// Construct a variable out of a single element
     ///
-    /// Panics: If given a string which contains `'.'`
+    /// Panics: If given a string which contains `.` or `var` is an empty string
     #[must_use]
     pub fn single(var: impl Into<VariableEl<'a>>) -> Self {
         let val = var.into();
         assert!(
             !val.contains('.'),
             "single cannot contain dot separator. Use parse if you want that"
+        );
+        assert!(
+            !val.is_empty(),
+            "cannot construct a variable with an empty string"
         );
         Self::single_unchecked(val)
     }
@@ -161,7 +171,7 @@ fn parse_with_terminator<F: Fn(u8) -> bool>(
     if error_if_invalid && valid_len != s.len() {
         return Err(parse::Error::new(
             (valid_len, 0),
-            parse::ErrorType::InvalidCharacter {
+            parse::ErrorKind::InvalidCharacter {
                 token: chars[valid_len],
             },
         ));
@@ -169,7 +179,7 @@ fn parse_with_terminator<F: Fn(u8) -> bool>(
     if valid_len == 0 {
         return Err(parse::Error::new(
             (0, 0),
-            parse::ErrorType::EmptyVariableSegment,
+            parse::ErrorKind::EmptyVariableSegment,
         ));
     }
 
@@ -195,7 +205,7 @@ fn parse_with_terminator<F: Fn(u8) -> bool>(
                     }
                     (found_space || len == valid_len) && found_dot
                 } {
-                    return Err(parse::Error::new((len, 0), parse::ErrorType::SpaceInPath));
+                    return Err(parse::Error::new((len, 0), parse::ErrorKind::SpaceInPath));
                 } else if len == valid_len {
                     Variable::single_unchecked(seg_s.to_owned())
                 } else {
@@ -214,7 +224,7 @@ fn parse_with_terminator<F: Fn(u8) -> bool>(
                             if head == valid_len {
                                 return Err(parse::Error::new(
                                     (orig_head, 0),
-                                    ErrorType::EmptyVariableSegment,
+                                    ErrorKind::EmptyVariableSegment,
                                 ));
                             }
                             continue;
@@ -265,7 +275,7 @@ mod tests {
         let var = Variable::from_str("a .b");
         assert_eq!(
             var,
-            Err(parse::Error::new((1, 0), parse::ErrorType::SpaceInPath))
+            Err(parse::Error::new((1, 0), parse::ErrorKind::SpaceInPath))
         );
     }
     #[test]
@@ -288,6 +298,12 @@ mod tests {
     fn constructing_single_variable_with_path_fails() {
         let _ = Variable::single("a.b");
     }
+
+    #[test]
+    #[should_panic]
+    fn constructing_single_variable_with_empty_fails() {
+        let _ = Variable::single("");
+    }
     #[test]
     fn parsing_variable_from_str_creates_single_if_only_one_element() {
         let var: Variable = "el".parse().unwrap();
@@ -300,7 +316,7 @@ mod tests {
             Variable::from_str("x."),
             Err(parse::Error::new(
                 (1, 0),
-                parse::ErrorType::EmptyVariableSegment
+                parse::ErrorKind::EmptyVariableSegment
             ))
         );
     }
