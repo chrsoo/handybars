@@ -64,7 +64,13 @@ pub(crate) fn try_parse_variable_segment(input: &[u8]) -> Result<&[u8]> {
                 };
             }
             '\n' => return Err(Error::new(pos, ErrorType::NewlineInVariableSegment)),
-            ' ' => return Ok(&input[..offset]),
+            _ if ch.is_ascii_punctuation()
+                || ch.is_ascii_digit()
+                || ch.is_ascii_control()
+                || ch.is_ascii_graphic() =>
+            {
+                return Ok(&input[..offset])
+            }
             _ => {}
         }
         offset += 1;
@@ -193,10 +199,16 @@ mod tests {
             })
         );
     }
+
+    #[test]
+    fn parse_segment_stops_on_non_alphanumeric_chars() {
+        let r = try_parse_variable_segment("x}".as_bytes()).map(str_from_utf8);
+        assert_eq!(r, Ok("x"));
+    }
     #[test]
     fn parse_segment_strips_trailing_spaces_in_singleton_case() {
-        let r = try_parse_variable_segment("x ".as_bytes());
-        assert_eq!(r, Ok("x".as_bytes()));
+        let r = try_parse_variable_segment("x ".as_bytes()).map(str_from_utf8);
+        assert_eq!(r, Ok("x"));
     }
     #[test]
     fn parse_segment_parses_no_separator_case() {
