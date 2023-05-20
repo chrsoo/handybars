@@ -51,7 +51,13 @@ impl<'a> Variable<'a> {
     #[must_use]
     pub fn from_parts(parts: impl IntoIterator<Item = impl Into<VariableEl<'a>>>) -> Self {
         Self {
-            inner: VariableInner::Segments(parts.into_iter().map(|p| p.into()).collect()),
+            inner: VariableInner::Segments(
+                parts
+                    .into_iter()
+                    .map(|p| p.into())
+                    .inspect(|s| assert!(!s.is_empty(), "variable part cannot be empty"))
+                    .collect(),
+            ),
         }
     }
 }
@@ -128,6 +134,8 @@ impl FromStr for Variable<'static> {
 
 #[cfg(test)]
 mod tests {
+    use proptest::{prelude::Arbitrary, prop_assert, prop_assert_eq, proptest, strategy::Strategy};
+
     use super::*;
 
     #[test]
@@ -153,5 +161,18 @@ mod tests {
     fn parsing_variable_from_path_works() {
         let var: Variable = "x.y".parse().unwrap();
         assert_eq!(var, Variable::from_parts(["x", "y"]));
+    }
+    proptest! {
+        #[test]
+        fn parsing_variable_from_unicode_works(input in r"([[[:alpha:]]~~[\p{Alphabetic}\d]])+(\.([[[:alpha:]]~~[\p{Alphabetic}\d]])+)*") {
+            let var = Variable::from_str(&input);
+            let split = input.split('.').collect::<Vec<_>>();
+            let expected = if split.len() == 1 {
+                Variable::single_unchecked(split[0])
+            }else {
+                Variable::from_parts(split)
+            };
+            prop_assert_eq!(var, Ok(expected));
+        }
     }
 }
