@@ -6,19 +6,35 @@ mod value;
 
 type VariableEl<'a> = Cow<'a, str>;
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 enum VariableInner<'a> {
     Segments(Vec<VariableEl<'a>>),
     Single(VariableEl<'a>),
 }
+impl<'a> VariableInner<'a> {
+    fn into_owned(self) -> VariableInner<'static> {
+        match self {
+            VariableInner::Segments(s) => {
+                VariableInner::Segments(s.into_iter().map(|s| Cow::Owned(s.into_owned())).collect())
+            }
+            VariableInner::Single(s) => VariableInner::Single(Cow::Owned(s.into_owned())),
+        }
+    }
+}
 
 #[repr(transparent)]
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Variable<'a> {
     inner: VariableInner<'a>,
 }
 
 impl<'a> Variable<'a> {
+    #[must_use]
+    pub fn into_owned(self) -> Variable<'static> {
+        Variable {
+            inner: self.inner.into_owned(),
+        }
+    }
     #[must_use]
     #[allow(clippy::len_without_is_empty)] // impossible for variable to be empty
     pub fn len(&self) -> usize {
