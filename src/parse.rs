@@ -9,6 +9,7 @@ pub enum ErrorType {
     EmptyVariableSegment,
     NewlineInVariableSegment,
     SpaceInPath,
+    InvalidCharacter { token: u8 },
 }
 impl std::fmt::Display for ErrorType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -16,6 +17,9 @@ impl std::fmt::Display for ErrorType {
             ErrorType::EmptyVariableSegment => f.write_str("empty variable segment name"),
             ErrorType::NewlineInVariableSegment => f.write_str("newline in variable segment"),
             ErrorType::SpaceInPath => f.write_str("space in variable path"),
+            ErrorType::InvalidCharacter { token } => {
+                f.write_fmt(format_args!("invalid character: '{token}'"))
+            }
         }
     }
 }
@@ -81,7 +85,11 @@ fn parse_template_inner<'a>(input: &'a [u8]) -> Option<Result<(Variable<'a>, usi
     while head < input.len() && input[head] as char == ' ' {
         head += 1;
     }
-    let var = match Variable::from_str(str_from_utf8(&input[head..])) {
+    let var = match super::parse_with_terminator(
+        str_from_utf8(&input[head..]),
+        |ch| ch as char == '}',
+        false,
+    ) {
         Ok(v) => v,
         Err(Error {
             ty: ErrorType::EmptyVariableSegment,

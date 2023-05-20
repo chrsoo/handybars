@@ -78,84 +78,100 @@ impl<'a> Variable<'a> {
     }
 }
 
+fn parse_with_terminator<F: Fn(u8) -> bool>(
+    s: &str,
+    valid_pred: F,
+    error_if_invalid: bool,
+) -> Result<Variable<'static>, parse::Error> {
+    if s.is_empty() {
+        return Err(parse::Error::new(
+            (0, 0),
+            parse::ErrorType::EmptyVariableSegment,
+        ));
+    }
+    let chars = s.as_bytes();
+    let valid_len = {
+        let mut head = 0;
+        while head < chars.len() && valid_pred(chars[head]) {
+            head += 1;
+        }
+        head
+    };
+    if error_if_invalid && valid_len != s.len() {
+        return Err(parse::Error::new(
+            (valid_len, 0),
+            parse::ErrorType::InvalidCharacter {
+                token: chars[valid_len],
+            },
+        ));
+    }
+
+    match parse::try_parse_variable_segment(chars) {
+        Err(e) => Err(e),
+        Ok(seg) => {
+            let len = seg.len();
+            let seg_s = unsafe { std::str::from_utf8_unchecked(seg) };
+            #[allow(clippy::blocks_in_if_conditions)]
+            Ok(if len == valid_len {
+                Variable::single_unchecked(seg_s.to_owned())
+            } else if {
+                let mut found_space = false;
+                let mut found_dot = false;
+                for c in &chars[len..] {
+                    match *c as char {
+                        ' ' => found_space = true,
+                        '.' => {
+                            found_dot = true;
+                            break;
+                        }
+                        _ => break,
+                    }
+                }
+                found_space && found_dot
+            } {
+                return Err(parse::Error::new((len, 0), parse::ErrorType::SpaceInPath));
+            } else {
+                let mut segments = vec![Cow::Owned(seg_s.to_owned())];
+                let mut head = seg_s.len();
+                let mut segs = loop {
+                    if head == valid_len || chars[head] as char == ' ' {
+                        break segments;
+                    }
+                    if chars[head] as char == '.' {
+                        head += 1;
+                        continue;
+                    }
+                    assert!(head < s.len());
+                    match parse::try_parse_variable_segment(&chars[head..]) {
+                        Err(e) => return Err(e.add_offset((head, 0))),
+                        Ok(seg) => {
+                            let len = seg.len();
+                            segments.push(Cow::Owned(
+                                unsafe { std::str::from_utf8_unchecked(seg) }.to_owned(),
+                            ));
+                            head += len;
+                        }
+                    }
+                };
+                if segs.len() == 1 {
+                    Variable::single_unchecked(segs.pop().unwrap())
+                } else {
+                    Variable::from_segments(segs)
+                }
+            })
+        }
+    }
+}
+
 impl FromStr for Variable<'static> {
     type Err = parse::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.is_empty() {
-            return Err(parse::Error::new(
-                (0, 0),
-                parse::ErrorType::EmptyVariableSegment,
-            ));
-        }
-        let chars = s.as_bytes();
-        let valid_len = {
-            let mut head = 0;
-            while head < chars.len()
-                && (parse::is_valid_variable_name_ch(chars[head])
-                    || chars[head] as char == ' '
-                    || chars[head] as char == '.')
-            {
-                head += 1;
-            }
-            head
-        };
-
-        match parse::try_parse_variable_segment(chars) {
-            Err(e) => Err(e),
-            Ok(seg) => {
-                let len = seg.len();
-                let seg_s = unsafe { std::str::from_utf8_unchecked(seg) };
-                #[allow(clippy::blocks_in_if_conditions)]
-                Ok(if len == valid_len {
-                    Self::single_unchecked(seg_s.to_owned())
-                } else if {
-                    let mut found_space = false;
-                    let mut found_dot = false;
-                    for c in &chars[len..] {
-                        match *c as char {
-                            ' ' => found_space = true,
-                            '.' => {
-                                found_dot = true;
-                                break;
-                            }
-                            _ => break,
-                        }
-                    }
-                    found_space && found_dot
-                } {
-                    return Err(parse::Error::new((len, 0), parse::ErrorType::SpaceInPath));
-                } else {
-                    let mut segments = vec![Cow::Owned(seg_s.to_owned())];
-                    let mut head = seg_s.len();
-                    let mut segs = loop {
-                        if head == valid_len || chars[head] as char == ' ' {
-                            break segments;
-                        }
-                        if chars[head] as char == '.' {
-                            head += 1;
-                            continue;
-                        }
-                        assert!(head < s.len());
-                        match parse::try_parse_variable_segment(&chars[head..]) {
-                            Err(e) => return Err(e.add_offset((head, 0))),
-                            Ok(seg) => {
-                                let len = seg.len();
-                                segments.push(Cow::Owned(
-                                    unsafe { std::str::from_utf8_unchecked(seg) }.to_owned(),
-                                ));
-                                head += len;
-                            }
-                        }
-                    };
-                    if segs.len() == 1 {
-                        Self::single_unchecked(segs.pop().unwrap())
-                    } else {
-                        Self::from_segments(segs)
-                    }
-                })
-            }
-        }
+        parse_with_terminator(
+            s,
+            |ch| parse::is_valid_variable_name_ch(ch) || ch as char == ' ' || ch as char == '.',
+            true,
+        )
     }
 }
 
