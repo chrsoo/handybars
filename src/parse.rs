@@ -102,52 +102,103 @@ fn str_from_utf8(chars: &[u8]) -> &str {
     std::str::from_utf8(chars).expect("This should never be hit, its a bug please investigate me")
 }
 
-pub fn tokenize(input: &str) -> Result<Vec<Token>> {
-    if input.is_empty() {
-        return Ok(Default::default());
+pub struct TokenizeIter<'a> {
+    chars: &'a [u8],
+    head: usize,
+    tail: usize,
+    row: usize,
+    col: usize,
+    hit_error: bool,
+    var_next: Option<Variable<'a>>,
+}
+
+impl<'a> TokenizeIter<'a> {
+    pub fn new(input: &'a str) -> Self {
+        Self {
+            chars: input.as_bytes(),
+            head: 0,
+            tail: 0,
+            row: 0,
+            col: 0,
+            hit_error: false,
+            var_next: None,
+        }
     }
-    let mut tokens = Vec::new();
-    let mut head = 0;
-    let mut tail = 0;
-    let chars = input.as_bytes();
-    let mut row = 0;
-    let mut col = 0;
-    while head < input.len() {
-        let pos = (col, row);
-        if head >= input.len() {
-            break;
-        }
-        if head == input.len() - 1 {
-            break;
-        }
-        let var = if chars[head] as char == '{' && chars[head + 1] as char == '{' {
-            parse_template_inner(&chars[head + 2..])
-                .transpose()
-                .map_err(|e| e.add_offset((pos.0 + 2, pos.1)))?
-        } else {
-            None
-        };
-        if let Some((var, len)) = var {
-            if tail != head {
-                tokens.push(Token::Str(str_from_utf8(&chars[tail..head])))
+}
+
+impl<'a> Iterator for TokenizeIter<'a> {
+    type Item = Result<Token<'a>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.hit_error {
+            return None;
+        } else if self.head >= self.chars.len() {
+            if self.tail != self.chars.len() - 1 {
+                let val = Some(Ok(Token::Str(str_from_utf8(&self.chars[self.tail..]))));
+                self.tail = self.chars.len() - 1;
+                return val;
             }
-            head += len + 2;
-            tail = head;
-            tokens.push(Token::Variable(var));
-        } else {
-            if chars[head] as char == '\n' {
-                col = 0;
-                row += 1;
+            return None;
+        }
+        if let Some(next) = self.var_next.take() {
+            return Some(Ok(Token::Variable(next)));
+        }
+
+        while self.head < self.chars.len() {
+            let pos = (self.col, self.row);
+            let var = if self.chars[self.head] as char == '{'
+                && self.chars[self.head + 1] as char == '{'
+            {
+                parse_template_inner(&self.chars[self.head + 2..])
+                    .transpose()
+                    .map_err(|e| e.add_offset((pos.0 + 2, pos.1)))
+                    .transpose()
             } else {
-                col += 1;
+                None
+            };
+            match var {
+                Some(Ok((var, len))) => {
+                    let prev_tail = self.tail;
+                    let prev_head = self.head;
+                    let should_add_prev = self.tail != self.head;
+                    self.head += len + 2;
+                    self.tail = self.head;
+                    if should_add_prev {
+                        self.var_next.replace(var);
+                        let val = Some(Ok(Token::Str(str_from_utf8(
+                            &self.chars[prev_tail..prev_head],
+                        ))));
+                        return val;
+                    } else {
+                        return Some(Ok(Token::Variable(var)));
+                    }
+                }
+                Some(Err(e)) => {
+                    self.hit_error = true;
+                    return Some(Err(e));
+                }
+                None => {
+                    if self.chars[self.head] as char == '\n' {
+                        self.col = 0;
+                        self.row += 1;
+                    } else {
+                        self.col += 1;
+                    }
+                    self.head += 1;
+                }
             }
-            head += 1;
         }
+        if self.tail != self.chars.len() - 1 {
+            let val = Some(Ok(Token::Str(str_from_utf8(&self.chars[self.tail..]))));
+            self.tail = self.chars.len() - 1;
+            return val;
+        }
+        None
     }
-    if tail != input.len() - 1 {
-        tokens.push(Token::Str(str_from_utf8(&chars[tail..])));
-    }
-    Ok(tokens)
+}
+
+pub fn tokenize(input: &str) -> TokenizeIter {
+    TokenizeIter::new(input)
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -199,7 +250,7 @@ mod tests {
     fn parse_with_equals_works() {
         let s = r"SOME_VAR={{ t1 }}
 export THING=$SOME_VAR";
-        let tkns = tokenize(s).unwrap();
+        let tkns = tokenize(s).collect::<Result<Vec<_>>>().unwrap();
         assert_eq!(
             tkns.as_slice(),
             &[
@@ -227,7 +278,9 @@ export THING=$SOME_VAR"
     }
     #[test]
     fn parsing_template_extracts_engine_samples() {
-        let parsed = tokenize("{{ var }}etc").unwrap();
+        let parsed = tokenize("{{ var }}etc")
+            .collect::<Result<Vec<_>>>()
+            .unwrap();
         assert_eq!(
             parsed.as_slice(),
             &[Token::Variable(Variable::single("var")), Token::Str("etc")]
