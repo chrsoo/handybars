@@ -48,6 +48,9 @@ impl Error {
         self
     }
 }
+pub(crate) fn is_valid_variable_name_ch(ch: u8) -> bool {
+    !(ch.is_ascii_punctuation() || ch.is_ascii_control() || ch.is_ascii_whitespace())
+}
 
 pub(crate) fn try_parse_variable_segment(input: &[u8]) -> Result<&[u8]> {
     if input.is_empty() {
@@ -59,7 +62,7 @@ pub(crate) fn try_parse_variable_segment(input: &[u8]) -> Result<&[u8]> {
         let pos = (offset, 0);
         match ch as char {
             '\n' => return Err(Error::new(pos, ErrorType::NewlineInVariableSegment)),
-            _ if ch.is_ascii_punctuation() || ch.is_ascii_control() || ch.is_ascii_whitespace() => {
+            _ if !is_valid_variable_name_ch(ch) => {
                 return if offset == 0 {
                     Err(Error::new(pos, ErrorType::EmptyVariableSegment))
                 } else {
@@ -197,8 +200,8 @@ impl<'a> Iterator for TokenizeIter<'a> {
     }
 }
 
-pub fn tokenize(input: &str) -> TokenizeIter {
-    TokenizeIter::new(input)
+pub fn tokenize(input: &str) -> Result<Vec<Token>> {
+    TokenizeIter::new(input).collect()
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -209,6 +212,8 @@ pub enum Token<'a> {
 
 #[cfg(test)]
 mod tests {
+    use proptest::{prop_assert_eq, proptest};
+
     use super::*;
 
     #[test]
@@ -221,6 +226,12 @@ mod tests {
                 ty: ErrorType::SpaceInPath
             })
         );
+    }
+
+    #[test]
+    fn parsing_template_works_without_spaces() {
+        let tokens = tokenize("{{test}}");
+        assert_eq!(tokens, Ok(vec![Token::Variable(Variable::single("test"))]));
     }
 
     #[test]
@@ -250,7 +261,7 @@ mod tests {
     fn parse_with_equals_works() {
         let s = r"SOME_VAR={{ t1 }}
 export THING=$SOME_VAR";
-        let tkns = tokenize(s).collect::<Result<Vec<_>>>().unwrap();
+        let tkns = tokenize(s).unwrap();
         assert_eq!(
             tkns.as_slice(),
             &[
@@ -278,12 +289,22 @@ export THING=$SOME_VAR"
     }
     #[test]
     fn parsing_template_extracts_engine_samples() {
-        let parsed = tokenize("{{ var }}etc")
-            .collect::<Result<Vec<_>>>()
-            .unwrap();
+        let parsed = tokenize("{{ var }}etc").unwrap();
         assert_eq!(
             parsed.as_slice(),
             &[Token::Variable(Variable::single("var")), Token::Str("etc")]
         );
+    }
+    proptest! {
+        #[test]
+        fn parse_template_inner_allows_any_amount_of_whitespace(whitespace in "[ ]*") {
+            let s = "test".to_owned() + &whitespace + "}}";
+            let cs = s.as_bytes();
+            let (var, _) = parse_template_inner(cs).unwrap().unwrap();
+            prop_assert_eq!(
+                &var,
+                &Variable::single("test")
+            );
+        }
     }
 }

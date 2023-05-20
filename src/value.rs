@@ -47,3 +47,11 @@ impl<'a> From<&'a str> for Value<'a> {
         Self::String(value.into())
     }
 }
+impl<'a> Value<'a> {
+    pub fn to_cow_str(&self) -> Cow<'a, str> {
+        match self {
+            Value::String(s) => s.clone(),
+            Value::Object(o) => todo!(),
+        }
+    }
+}

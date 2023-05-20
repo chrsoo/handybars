@@ -89,6 +89,17 @@ impl FromStr for Variable<'static> {
             ));
         }
         let chars = s.as_bytes();
+        let valid_len = {
+            let mut head = 0;
+            while head < chars.len()
+                && (parse::is_valid_variable_name_ch(chars[head])
+                    || chars[head] as char == ' '
+                    || chars[head] as char == '.')
+            {
+                head += 1;
+            }
+            head
+        };
 
         match parse::try_parse_variable_segment(chars) {
             Err(e) => Err(e),
@@ -96,7 +107,7 @@ impl FromStr for Variable<'static> {
                 let len = seg.len();
                 let seg_s = unsafe { std::str::from_utf8_unchecked(seg) };
                 #[allow(clippy::blocks_in_if_conditions)]
-                Ok(if len == s.len() {
+                Ok(if len == valid_len {
                     Self::single_unchecked(seg_s.to_owned())
                 } else if {
                     let mut found_space = false;
@@ -118,7 +129,7 @@ impl FromStr for Variable<'static> {
                     let mut segments = vec![Cow::Owned(seg_s.to_owned())];
                     let mut head = seg_s.len();
                     let mut segs = loop {
-                        if head == s.len() || chars[head] as char == ' ' {
+                        if head == valid_len || chars[head] as char == ' ' {
                             break segments;
                         }
                         if chars[head] as char == '.' {
@@ -178,16 +189,32 @@ mod tests {
         let var: Variable = "x.y".parse().unwrap();
         assert_eq!(var, Variable::from_parts(["x", "y"]));
     }
+    fn run_parsing_variable_test(input: &str) -> (Result<Variable, parse::Error>, Variable) {
+        let var = Variable::from_str(input);
+        let split = input
+            .split(' ')
+            .next()
+            .unwrap()
+            .trim_end_matches('}')
+            .split('.')
+            .collect::<Vec<_>>();
+        let expected = if split.len() == 1 {
+            Variable::single_unchecked(split[0])
+        } else {
+            Variable::from_parts(split)
+        };
+        (var, expected)
+    }
+
     proptest! {
         #[test]
-        fn parsing_variable_from_unicode_works(input in r"([[[:alpha:]]~~[\p{Alphabetic}\d]])+(\.([[[:alpha:]]~~[\p{Alphabetic}\d]])+)*") {
-            let var = Variable::from_str(&input);
-            let split = input.split('.').collect::<Vec<_>>();
-            let expected = if split.len() == 1 {
-                Variable::single_unchecked(split[0])
-            }else {
-                Variable::from_parts(split)
-            };
+        fn parsing_variable_from_ascii_works(input in r"([[:alpha:]]\d)+(\.([[[:alpha:]]\d])+)*[ ]*}") {
+            let (var, expected) = run_parsing_variable_test(&input);
+            prop_assert_eq!(var, Ok(expected));
+        }
+        #[test]
+        fn parsing_variable_from_unicode_works(input in r"([[[:alpha:]]~~[\p{Alphabetic}\d]])+(\.([[[:alpha:]]~~[\p{Alphabetic}\d]])+)*[ ]*}") {
+            let (var, expected) = run_parsing_variable_test(&input);
             prop_assert_eq!(var, Ok(expected));
         }
     }
