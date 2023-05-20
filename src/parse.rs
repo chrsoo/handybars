@@ -123,8 +123,20 @@ fn parse_template_inner(input: &[u8]) -> Option<Result<(Variable, usize)>> {
     }
     None
 }
+
+#[inline]
 pub(crate) fn str_from_utf8(chars: &[u8]) -> &str {
-    std::str::from_utf8(chars).expect("This should never be hit, its a bug please investigate me")
+    #[cfg(debug_assertions)]
+    {
+        std::str::from_utf8(chars).expect(
+            "failed to convert input to utf8, this is a bug fixme or it'll be UB in release mode",
+        )
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        // Safety: This is ok because we only ever call it on slices of strings, separated by ascii characters
+        unsafe { std::str::from_utf8_unchecked(chars) }
+    }
 }
 
 /// Tokenization iterator
