@@ -98,10 +98,18 @@ fn parse_template_inner<'a>(input: &'a [u8]) -> Option<Result<(Variable<'a>, usi
                     input_len = input.len() - 1,
                 );
                 head += len;
-                if check_end_condition(head, input) {
+                let old_head = head;
+                while head < input.len() {
+                    if input[head] as char == ' ' {
+                        head += 1;
+                    } else {
+                        break;
+                    }
+                }
+                if segments.is_empty() && check_end_condition(head, input) {
                     return Some(Ok((Variable::single_unchecked(segment), head + 2)));
                 } else if input[len] as char == ' ' {
-                    return Some(Err(Error::new((head, 0), ErrorType::SpaceInPath)));
+                    return Some(Err(Error::new((old_head, 0), ErrorType::SpaceInPath)));
                 } else {
                     segments.push(segment);
                 }
