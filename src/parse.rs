@@ -144,7 +144,7 @@ impl<'a> Iterator for TokenizeIter<'a> {
         if self.hit_error {
             return None;
         } else if self.head >= self.chars.len() {
-            if self.tail != self.chars.len() - 1 {
+            if self.tail < self.chars.len() - 1 {
                 let val = Some(Ok(Token::Str(str_from_utf8(&self.chars[self.tail..]))));
                 self.tail = self.chars.len() - 1;
                 return val;
