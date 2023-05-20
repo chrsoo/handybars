@@ -20,9 +20,12 @@ pub struct Context<'a> {
 }
 type Result<T, E = Error> = std::result::Result<T, E>;
 
+/// Errors that may happen during rendering
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
+    /// Forwarded from parsing
     Parse(parse::Error),
+    /// Tried to expand a template variable that we don't have a value for
     MissingVariable(Variable<'static>),
 }
 impl std::fmt::Display for Error {

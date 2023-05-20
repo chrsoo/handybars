@@ -1,4 +1,4 @@
-//!
+//! Parsing utilities for templates
 use crate::Variable;
 
 type Result<T, E = Error> = std::result::Result<T, E>;
