@@ -29,7 +29,11 @@ impl<'a> Context<'a> {
     }
     pub fn define(&mut self, var: Variable<'a>, value: impl Into<Value<'a>>) -> &mut Self {
         match value.into() {
-            Value::Object(obj) => {}
+            Value::Object(obj) => {
+                for (var, c) in obj.values {
+                    self.define(var Variable::single(var), c);
+                }
+            }
             Value::String(s) => {
                 self.vars.insert(var, s);
             }

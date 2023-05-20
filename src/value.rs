@@ -2,7 +2,7 @@ use std::{borrow::Cow, collections::BTreeMap};
 
 #[derive(Clone, Debug, Default)]
 pub struct Object<'a> {
-    values: BTreeMap<Cow<'a, str>, Value<'a>>,
+    pub(crate) values: BTreeMap<Cow<'a, str>, Value<'a>>,
 }
 
 impl<'a> Object<'a> {

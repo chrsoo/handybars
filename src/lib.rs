@@ -76,6 +76,28 @@ impl<'a> Variable<'a> {
             ),
         }
     }
+    #[must_use]
+    pub fn join(self, other: Self) -> Self {
+        match self.inner {
+            VariableInner::Segments(mut xs) => match other.inner {
+                VariableInner::Segments(mut ys) => {
+                    xs.append(&mut ys);
+                    Self::from_segments(xs)
+                }
+                VariableInner::Single(s) => {
+                    xs.push(s);
+                    Self::from_segments(xs)
+                }
+            },
+            VariableInner::Single(s) => match other.inner {
+                VariableInner::Segments(mut xs) => {
+                    xs.insert(0, s);
+                    Self::from_segments(xs)
+                }
+                VariableInner::Single(y) => Self::from_segments(vec![s, y]),
+            },
+        }
+    }
 }
 
 fn parse_with_terminator<F: Fn(u8) -> bool>(
@@ -187,6 +209,21 @@ mod tests {
         assert_eq!(
             var,
             Err(parse::Error::new((1, 0), parse::ErrorType::SpaceInPath))
+        );
+    }
+    #[test]
+    fn variable_join_reuses_vec_on_either_side() {
+        let v1 = Variable::single("v");
+        let v2 = Variable::from_parts(["t", "t2"]);
+        let v3 = v1.clone().join(v2.clone());
+        assert_eq!(
+            v3.inner,
+            VariableInner::Segments(vec!["v".into(), "t".into(), "t2".into()])
+        );
+        let v3 = v2.join(v1);
+        assert_eq!(
+            v3.inner,
+            VariableInner::Segments(vec!["t".into(), "t2".into(), "v".into()])
         );
     }
     #[test]
