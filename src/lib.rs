@@ -72,18 +72,36 @@ impl FromStr for Variable<'static> {
                 let seg_s = unsafe { std::str::from_utf8_unchecked(seg) };
                 Ok(if len == s.len() {
                     Self::single_unchecked(seg_s.to_owned())
-                } else if chars[len] as char == ' ' {
+                } else if {
+                    let mut found_space = false;
+                    let mut found_dot = false;
+                    for c in &chars[len..] {
+                        match *c as char {
+                            ' ' => found_space = true,
+                            '.' => {
+                                found_dot = true;
+                                break;
+                            }
+                            _ => break,
+                        }
+                    }
+                    found_space && found_dot
+                } {
                     return Err(parse::Error::new((len, 0), parse::ErrorType::SpaceInPath));
                 } else {
                     let mut segments = vec![Cow::Owned(seg_s.to_owned())];
                     let mut head = seg_s.len();
-                    Self::from_segments(loop {
-                        if head == s.len() {
+                    let mut segs = loop {
+                        if head == s.len() || chars[head] as char == ' ' {
                             break segments;
+                        }
+                        if chars[head] as char == '.' {
+                            head += 1;
+                            continue;
                         }
                         assert!(head < s.len());
                         match parse::try_parse_variable_segment(&chars[head..]) {
-                            Err(e) => return Err(e),
+                            Err(e) => return Err(e.add_offset((head, 0))),
                             Ok(seg) => {
                                 let len = seg.len();
                                 segments.push(Cow::Owned(
@@ -92,7 +110,12 @@ impl FromStr for Variable<'static> {
                                 head += len;
                             }
                         }
-                    })
+                    };
+                    if segs.len() == 1 {
+                        Self::single_unchecked(segs.pop().unwrap())
+                    } else {
+                        Self::from_segments(segs)
+                    }
                 })
             }
         }
@@ -120,5 +143,11 @@ mod tests {
     fn parsing_variable_from_str_creates_single_if_only_one_element() {
         let var: Variable = "el".parse().unwrap();
         assert_eq!(var.inner, VariableInner::Single("el".into()));
+    }
+
+    #[test]
+    fn parsing_variable_from_path_works() {
+        let var: Variable = "x.y".parse().unwrap();
+        assert_eq!(var, Variable::from_parts(["x", "y"]));
     }
 }

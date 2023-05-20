@@ -59,11 +59,7 @@ pub(crate) fn try_parse_variable_segment(input: &[u8]) -> Result<&[u8]> {
         let pos = (offset, 0);
         match ch as char {
             '\n' => return Err(Error::new(pos, ErrorType::NewlineInVariableSegment)),
-            _ if ch.is_ascii_punctuation()
-                || ch.is_ascii_digit()
-                || ch.is_ascii_control()
-                || ch.is_ascii_graphic() =>
-            {
+            _ if ch.is_ascii_punctuation() || ch.is_ascii_control() || ch.is_ascii_whitespace() => {
                 return if offset == 0 {
                     Err(Error::new(pos, ErrorType::EmptyVariableSegment))
                 } else {
@@ -78,17 +74,25 @@ pub(crate) fn try_parse_variable_segment(input: &[u8]) -> Result<&[u8]> {
 }
 
 fn parse_template_inner<'a>(input: &'a [u8]) -> Option<Result<(Variable<'a>, usize)>> {
-    let var = match Variable::from_str(str_from_utf8(input)) {
+    let mut head = 0;
+    while head < input.len() && input[head] as char == ' ' {
+        head += 1;
+    }
+    let var = match Variable::from_str(str_from_utf8(&input[head..])) {
         Ok(v) => v,
-        Err(e) => return Some(Err(e)),
+        Err(Error {
+            ty: ErrorType::EmptyVariableSegment,
+            offset: (0, 0),
+        }) => return None,
+        Err(e) => return Some(Err(e.add_offset((head, 0)))),
     };
-    let mut head = var.len();
+    head += var.len();
     fn check_end_condition(head: usize, input: &[u8]) -> bool {
         input[head] as char == '}' && input[head + 1] as char == '}'
     }
     while head < input.len() - 1 {
         if check_end_condition(head, input) {
-            return Some(Ok((var, head)));
+            return Some(Ok((var, head + 2)));
         }
         head += 1;
     }
@@ -188,8 +192,8 @@ mod tests {
     #[test]
     fn parse_segment_parses_with_seperator_returns_up_to_seperator() {
         let input = "seg.part.2".as_bytes();
-        let r = try_parse_variable_segment(input);
-        assert_eq!(r, Ok("seg".as_bytes()))
+        let r = try_parse_variable_segment(input).map(str_from_utf8);
+        assert_eq!(r, Ok("seg"))
     }
     #[test]
     fn parse_with_equals_works() {
