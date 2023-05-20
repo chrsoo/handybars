@@ -111,6 +111,28 @@ fn str_from_utf8(chars: &[u8]) -> &str {
     std::str::from_utf8(chars).expect("This should never be hit, its a bug please investigate me")
 }
 
+/// Tokenization iterator
+///
+/// This exists to allow true zero-allocation tokenization. See [`tokenize`](parse::tokenize) for
+/// a version of this which gives you a vector and result.
+///
+/// ```
+/// # use handybars::{*, parse::*};
+/// let mut tokens = TokenizeIter::new("some {{ text }}");
+/// assert_eq!(tokens.next(), Some(Ok(Token::Str("some "))));
+/// assert_eq!(tokens.next(), Some(Ok(Token::Variable(Variable::single("text")))));
+/// assert_eq!(tokens.next(), None);
+/// ```
+///
+/// Note: Once this returns `Some(Err(_))` once it will always return `None` after
+///
+/// ```
+/// # use handybars::{*, parse::*};
+/// let mut tokens = TokenizeIter::new("{{ i.am.invalid. }} I would appear if not for the error");
+/// assert!(matches!(tokens.next(), Some(Err(_))));
+/// assert_eq!(tokens.next(), None);
+/// ```
+///
 pub struct TokenizeIter<'a> {
     chars: &'a [u8],
     head: usize,
@@ -139,6 +161,9 @@ impl<'a> Iterator for TokenizeIter<'a> {
     type Item = Result<Token<'a>>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if let Some(next) = self.var_next.take() {
+            return Some(Ok(Token::Variable(next)));
+        }
         if self.hit_error {
             return None;
         } else if self.head >= self.chars.len() {
@@ -148,9 +173,6 @@ impl<'a> Iterator for TokenizeIter<'a> {
                 return val;
             }
             return None;
-        }
-        if let Some(next) = self.var_next.take() {
-            return Some(Ok(Token::Variable(next)));
         }
 
         while self.head < self.chars.len() {
@@ -172,6 +194,7 @@ impl<'a> Iterator for TokenizeIter<'a> {
                     let should_add_prev = self.tail != self.head;
                     self.head += len + 2;
                     self.tail = self.head;
+                    self.col += len + 2;
                     if should_add_prev {
                         self.var_next.replace(var);
                         let val = Some(Ok(Token::Str(str_from_utf8(
@@ -231,6 +254,27 @@ mod tests {
                 offset: (1, 0),
                 ty: ErrorType::SpaceInPath
             })
+        );
+    }
+
+    #[test]
+    fn parsing_tokens_with_space_before_template_works() {
+        let tokens = tokenize("some {{ text }}").unwrap();
+        assert_eq!(
+            tokens,
+            vec![
+                Token::Str("some "),
+                Token::Variable(Variable::single("text"))
+            ]
+        );
+    }
+
+    #[test]
+    fn invalid_template_causes_tokenize_to_halt() {
+        let tokens = tokenize("{{invalid. }} some text");
+        assert_eq!(
+            tokens,
+            Err(Error::new((9, 0), ErrorType::EmptyVariableSegment))
         );
     }
 
