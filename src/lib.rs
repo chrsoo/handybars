@@ -12,7 +12,7 @@ mod value;
 pub use context::{Context, Error};
 pub use value::{Object, Value};
 
-use crate::parse::ErrorKind;
+use crate::parse::{str_from_utf8, ErrorKind};
 
 type VariableEl<'a> = Cow<'a, str>;
 
@@ -214,6 +214,16 @@ fn parse_with_terminator(
                     let mut head = seg_s.len();
                     let mut segs = loop {
                         if head == valid_len || chars[head] as char == ' ' {
+                            head += chars[head..]
+                                .iter()
+                                .take_while(|v| **v as char == ' ')
+                                .count();
+                            if parse_with_terminator(str_from_utf8(&chars[head..]), false).is_ok() {
+                                return Err(parse::Error::new(
+                                    (head, 0),
+                                    ErrorKind::TooManyVariablesInBlock,
+                                ));
+                            }
                             break segments;
                         }
                         if chars[head] as char == '.' {
