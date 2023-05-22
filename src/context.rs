@@ -71,6 +71,26 @@ impl<'a> Context<'a> {
     }
     /// Map a variable to a value for template expansion
     ///
+    /// Values are merged into existing definitions where possible
+    ///
+    /// ```
+    /// # use handybars::{Context, Object, Variable};
+    /// # use std::str::FromStr;
+    /// let mut obj = Object::new().with_property("b", "c");
+    /// let mut ctx = Context::new().with_define("a".parse().unwrap(), obj.clone());
+    ///
+    /// ctx.define("a.d".parse().unwrap(), "f");
+    /// obj.add_property("d", "f");
+    /// assert_eq!(ctx.get_value(&Variable::single("a")), Some(&obj.clone().into()));
+    ///
+    /// ctx.define("a.d.e".parse().unwrap(), Object::new().with_property("x", "y"));
+    /// obj.add_property("d", Object::new().with_property("e", Object::new().with_property("x", "y")));
+    /// assert_eq!(ctx.get_value(&Variable::single("a")), Some(&obj.clone().into()));
+    /// ```
+    ///
+    /// Note that `f` is overwritten here as `e` is an object and so the value pointed to by `d` must also
+    /// change to an object.
+    ///
     pub fn define(&mut self, var: Variable<'a>, value: impl Into<Value<'a>>) -> &mut Self {
         match var.inner {
             crate::VariableInner::Segments(mut segs) => {
@@ -145,6 +165,13 @@ impl<'a> Context<'a> {
         }
     }
     /// Expand a single variable
+    ///
+    /// ```
+    /// # use handybars::{Context, Variable};
+    /// let var = Variable::single("a");
+    /// let ctx = Context::new().with_define(var.clone(), "b");
+    /// assert_eq!(ctx.expand(&var), Ok("b".to_owned()));
+    /// ```
     pub fn expand(&self, var: &Variable<'a>) -> Result<String> {
         let val = self
             .get_value(var)
@@ -157,6 +184,13 @@ impl<'a> Context<'a> {
     }
 
     /// Render a template
+    ///
+    /// ```
+    /// # use handybars::{Context, Variable};
+    /// let var = Variable::single("a");
+    /// let ctx = Context::new().with_define(var.clone(), "b");
+    /// assert_eq!(ctx.render("some text {{ a }}"), Ok("some text b".to_owned()));
+    /// ```
     pub fn render<'b>(&self, input: &'b str) -> Result<String> {
         let mut output = String::new();
         for token in Tokenize::<'b>::new(input) {
@@ -175,10 +209,10 @@ impl<'a> Context<'a> {
     /// This operates in place, see [`merge`](Context::merge) for a streamable version
     ///
     /// ```
-    /// # use handybars::{Context, Variable};
+    /// # use handybars::{Context, Variable, Value};
     /// let mut ctx = Context::new();
     /// ctx.append(Context::new().with_define(Variable::single("a"), "b"));
-    /// assert_eq!(ctx.render("{{a}}"), Ok("b".to_owned()));
+    /// assert_eq!(ctx.get_value(&Variable::single("a")), Some(&Value::String("b".into())));
     /// ```
     pub fn append(&mut self, other: Self) -> &mut Self {
         self.vars.extend(other.vars.into_iter());
@@ -198,7 +232,7 @@ impl<'a> Extend<(Variable<'a>, Value<'a>)> for Context<'a> {
     /// # use handybars::{Context, Variable, Value};
     /// let mut ctx = Context::new();
     /// ctx.extend([(Variable::single("a"), Value::String("b".into()))].into_iter());
-    /// assert_eq!(ctx.render("{{a}}"), Ok("b".to_owned()));
+    /// assert_eq!(ctx.get_value(&Variable::single("a")), Some(&Value::String("b".into())));
     /// ```
     fn extend<T: IntoIterator<Item = (Variable<'a>, Value<'a>)>>(&mut self, iter: T) {
         for (var, val) in iter {
