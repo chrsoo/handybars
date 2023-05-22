@@ -3,6 +3,46 @@ use crate::Variable;
 
 type Result<T, E = Error> = std::result::Result<T, E>;
 
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Copy)]
+/// Location information
+///
+/// Used for offsets into source. All indexes are 0 based (i.e. row 0, col 0 is the first character of the first line)
+pub struct Location {
+    #[allow(missing_docs)] // seriousely, I don't think this one needs explaining
+    pub row: usize,
+    #[allow(missing_docs)]
+    pub col: usize,
+}
+impl std::ops::Add for Location {
+    type Output = Location;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            row: self.row + rhs.row,
+            col: rhs.col + self.col,
+        }
+    }
+}
+impl std::ops::Sub for Location {
+    type Output = Location;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self {
+            row: self.row - rhs.row,
+            col: self.col - rhs.row,
+        }
+    }
+}
+impl std::fmt::Display for Location {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "(row: {r}, column: {c})",
+            r = self.row,
+            c = self.col
+        ))
+    }
+}
+
 /// Kind of error reported by parsers
 #[derive(Debug, PartialEq, Eq)]
 #[non_exhaustive]
@@ -430,5 +470,21 @@ export THING=$SOME_VAR"
                 &Variable::single("test")
             );
         }
+    }
+
+    #[test]
+    fn location_adds_correctly() {
+        assert_eq!(
+            Location { row: 2, col: 0 } + Location { row: 1, col: 3 },
+            Location { row: 3, col: 3 }
+        );
+    }
+
+    #[test]
+    fn location_subtracts_correctly() {
+        assert_eq!(
+            Location { row: 5, col: 3 } - Location { row: 1, col: 2 },
+            Location { row: 4, col: 1 }
+        );
     }
 }
