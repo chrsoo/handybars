@@ -104,6 +104,7 @@ impl std::fmt::Display for ErrorKind {
         }
     }
 }
+impl std::error::Error for Error {}
 
 /// Type for errors reported by parsing
 #[derive(Debug, PartialEq, Eq)]

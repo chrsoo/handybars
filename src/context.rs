@@ -19,6 +19,7 @@ pub struct Context<'a> {
     vars: HashMap<Variable<'a>, Cow<'a, str>>,
 }
 type Result<T, E = Error> = std::result::Result<T, E>;
+impl std::error::Error for Error {}
 
 /// Errors that may happen during rendering
 #[derive(Debug, PartialEq, Eq)]
