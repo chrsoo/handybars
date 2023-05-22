@@ -1,7 +1,7 @@
 use std::{borrow::Cow, collections::BTreeMap};
 
 /// Object value with 0 or more properties
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Object<'a> {
     pub(crate) values: BTreeMap<Cow<'a, str>, Value<'a>>,
 }
@@ -41,10 +41,14 @@ impl<'a> Object<'a> {
         self.add_property(name, value);
         self
     }
+    pub fn property(&self, name: &str) -> Option<&Value<'a>> {
+        self.values.get(name)
+    }
 }
 
 /// Value that variables can be expanded to
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum Value<'a> {
     /// Simple string substitution
     String(Cow<'a, str>),
@@ -66,7 +70,31 @@ impl<'a> From<&'a str> for Value<'a> {
         Self::String(value.into())
     }
 }
-impl<'a> Value<'a> {}
+impl<'a> Value<'a> {
+    pub fn as_object(&self) -> Option<&Object<'a>> {
+        if let Self::Object(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_object_mut(&mut self) -> Option<&mut Object<'a>> {
+        if let Self::Object(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_string(&self) -> Option<&Cow<'a, str>> {
+        if let Self::String(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+}
 impl From<String> for Value<'static> {
     fn from(value: String) -> Self {
         Self::String(Cow::Owned(value))

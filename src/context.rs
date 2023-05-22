@@ -1,9 +1,12 @@
-use std::{borrow::Cow, collections::HashMap};
+use std::{
+    borrow::Cow,
+    collections::{HashMap, HashSet},
+};
 
 use crate::{
     parse::{self, Tokenize},
     value::Value,
-    Variable,
+    Object, Variable,
 };
 
 /// Context for expanding templates
@@ -16,7 +19,7 @@ use crate::{
 /// ```
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Context<'a> {
-    vars: HashMap<Variable<'a>, Cow<'a, str>>,
+    vars: HashMap<Cow<'a, str>, Value<'a>>,
 }
 type Result<T, E = Error> = std::result::Result<T, E>;
 impl std::error::Error for Error {}
@@ -46,6 +49,18 @@ impl From<parse::Error> for Error {
         Self::Parse(value)
     }
 }
+macro_rules! force_object {
+    ($entry:expr) => {
+        $entry
+            .and_modify(|o| match o {
+                Value::String(_) => *o = Object::new().into(),
+                Value::Object(_) => {}
+            })
+            .or_insert(Object::new().into())
+            .as_object_mut()
+            .unwrap()
+    };
+}
 
 impl<'a> Context<'a> {
     /// Create a new context with no variables defined
@@ -55,14 +70,28 @@ impl<'a> Context<'a> {
     /// Map a variable to a value for template expansion
     ///
     pub fn define(&mut self, var: Variable<'a>, value: impl Into<Value<'a>>) -> &mut Self {
-        match value.into() {
-            Value::Object(obj) => {
-                for (v, c) in obj.values {
-                    self.define(var.clone().join(Variable::single(v)), c);
+        match var.inner {
+            crate::VariableInner::Segments(mut segs) => {
+                let mut parent = force_object!(self.vars.entry(segs[0].clone()));
+                let last = segs.pop().unwrap();
+                for level in segs.into_iter().skip(1) {
+                    parent = force_object!(parent.values.entry(level));
                 }
+                parent.add_property(last, value);
             }
-            Value::String(s) => {
-                self.vars.insert(var, s);
+            crate::VariableInner::Single(s) => {
+                let mut value = Some(value);
+                self.vars
+                    .entry(s.clone())
+                    .and_modify(|o| match o {
+                        Value::String(_) => {
+                            *o = value.take().unwrap().into();
+                        }
+                        Value::Object(o) => {
+                            o.add_property(s, value.take().unwrap());
+                        }
+                    })
+                    .or_insert(value.take().unwrap().into());
             }
         }
         self
@@ -72,6 +101,19 @@ impl<'a> Context<'a> {
         self.define(var, value);
         self
     }
+    pub fn get_value(&self, var: &Variable<'a>) -> Option<&Value<'a>> {
+        match &var.inner {
+            crate::VariableInner::Segments(segs) => {
+                let mut parent = self.vars.get(&segs[0])?;
+                let last = segs.last().unwrap();
+                for level in segs.iter().skip(1).take(segs.len() - 2) {
+                    parent = parent.as_object()?.property(level)?;
+                }
+                parent.as_object()?.property(last)
+            }
+            crate::VariableInner::Single(s) => self.vars.get(s),
+        }
+    }
 
     /// Render a template
     pub fn render<'b>(&self, input: &'b str) -> Result<String> {
@@ -80,8 +122,9 @@ impl<'a> Context<'a> {
             let token = token?;
             match token {
                 parse::Token::Variable(v) => output.push_str(
-                    self.vars
-                        .get(&v)
+                    &self
+                        .get_value(&v)
+                        .and_then(|v| v.as_string())
                         .ok_or_else(|| Error::MissingVariable(v.into_owned()))?,
                 ),
                 parse::Token::Str(s) => {
@@ -111,6 +154,7 @@ impl<'a> Context<'a> {
         self
     }
 }
+
 impl<'a> Extend<(Variable<'a>, Value<'a>)> for Context<'a> {
     /// Extend a `Context` with an iterator of defines
     ///
@@ -168,5 +212,16 @@ mod tests {
             Err(Error::MissingVariable(Variable::single("notexist"))),
             "missing defines cause an error"
         );
+    }
+    #[test]
+    fn from_iterator_for_context_adds_defines_for_each_element() {
+        let ctx: Context = [
+            (Variable::single("a"), Value::String("b".into())),
+            (Variable::single("b"), Value::String("c".into())),
+        ]
+        .into_iter()
+        .collect();
+        assert_eq!(ctx.render("{{a}}"), Ok("b".to_owned()));
+        assert_eq!(ctx.render("{{b}}"), Ok("c".to_owned()));
     }
 }
