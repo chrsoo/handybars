@@ -3,24 +3,52 @@ use crate::Variable;
 
 type Result<T, E = Error> = std::result::Result<T, E>;
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Copy)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Copy, Default)]
 /// Location information
 ///
 /// Used for offsets into source. All indexes are 0 based (i.e. row 0, col 0 is the first character of the first line)
 pub struct Location {
     #[allow(missing_docs)] // seriousely, I don't think this one needs explaining
-    pub row: usize,
+    pub line: usize,
     #[allow(missing_docs)]
     pub col: usize,
 }
+impl Location {
+    /// Construct a new Location
+    pub fn new(col: usize, line: usize) -> Self {
+        Self { col, line }
+    }
+    /// (0, 0)
+    pub fn zero() -> Self {
+        Self::default()
+    }
+}
+impl From<(usize, usize)> for Location {
+    fn from(value: (usize, usize)) -> Self {
+        Self::new(value.0, value.1)
+    }
+}
+
 impl std::ops::Add for Location {
     type Output = Location;
 
     fn add(self, rhs: Self) -> Self::Output {
         Self {
-            row: self.row + rhs.row,
+            line: self.line + rhs.line,
             col: rhs.col + self.col,
         }
+    }
+}
+impl std::ops::AddAssign for Location {
+    fn add_assign(&mut self, rhs: Self) {
+        self.col += rhs.col;
+        self.line += rhs.line;
+    }
+}
+impl std::ops::SubAssign for Location {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.col -= rhs.col;
+        self.line -= rhs.line;
     }
 }
 impl std::ops::Sub for Location {
@@ -28,8 +56,8 @@ impl std::ops::Sub for Location {
 
     fn sub(self, rhs: Self) -> Self::Output {
         Self {
-            row: self.row - rhs.row,
-            col: self.col - rhs.row,
+            line: self.line - rhs.line,
+            col: self.col - rhs.col,
         }
     }
 }
@@ -37,7 +65,7 @@ impl std::fmt::Display for Location {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
             "(row: {r}, column: {c})",
-            r = self.row,
+            r = self.line,
             c = self.col
         ))
     }
@@ -83,32 +111,33 @@ pub struct Error {
     /// Offset into source for error
     ///
     /// First is column, second is row
-    offset: (usize, usize),
+    offset: Location,
     /// Type of error
     ty: ErrorKind,
 }
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let (col, line) = self.offset;
         write!(
             f,
             "{} at line {line} column {col}",
             self.ty,
-            line = line + 1,
-            col = col + 1
+            line = self.offset.line + 1,
+            col = self.offset.col + 1
         )
     }
 }
 
 impl Error {
     /// Construct a new error with offset and kind
-    pub fn new(offset: (usize, usize), ty: ErrorKind) -> Self {
-        Self { offset, ty }
+    pub fn new(offset: impl Into<Location>, ty: ErrorKind) -> Self {
+        Self {
+            offset: offset.into(),
+            ty,
+        }
     }
     /// Add offset to existing error
-    pub fn add_offset(mut self, offset: (usize, usize)) -> Self {
-        self.offset.0 += offset.0;
-        self.offset.1 += offset.1;
+    pub fn add_offset(mut self, offset: impl Into<Location>) -> Self {
+        self.offset += offset.into();
         self
     }
 
@@ -118,7 +147,7 @@ impl Error {
     }
 
     /// Location in the input that this error ocurred
-    pub fn location(&self) -> (usize, usize) {
+    pub fn location(&self) -> Location {
         self.offset
     }
 }
@@ -157,12 +186,18 @@ pub(crate) fn is_valid_identifier_ch(ch: u8) -> bool {
 
 pub(crate) fn try_parse_variable_segment(input: &[u8]) -> Result<&[u8]> {
     if input.is_empty() {
-        return Err(Error::new((0, 0), ErrorKind::EmptyVariableSegment));
+        return Err(Error::new(
+            Location::zero(),
+            ErrorKind::EmptyVariableSegment,
+        ));
     }
     let mut offset = 0;
     while offset < input.len() {
         let ch = input[offset];
-        let pos = (offset, 0);
+        let pos = Location {
+            line: 0,
+            col: offset,
+        };
         match ch as char {
             '\n' => return Err(Error::new(pos, ErrorKind::NewlineInVariableSegment)),
             _ if !is_valid_identifier_ch(ch) => {
@@ -188,9 +223,9 @@ fn parse_template_inner(input: &[u8]) -> Option<Result<(Variable, usize)>> {
         Ok(v) => v,
         Err(Error {
             ty: ErrorKind::EmptyVariableSegment,
-            offset: (0, 0),
+            offset: Location { line: 0, col: 0 },
         }) => return None,
-        Err(e) => return Some(Err(e.add_offset((head, 0)))),
+        Err(e) => return Some(Err(e.add_offset(Location::new(head, 0)))),
     };
     head += var.len();
     fn check_end_condition(head: usize, input: &[u8]) -> bool {
@@ -362,13 +397,7 @@ mod tests {
     #[test]
     fn parse_template_inner_errors_with_space_in_path() {
         let r = parse_template_inner("x .y}}".as_bytes()).unwrap();
-        assert_eq!(
-            r,
-            Err(Error {
-                offset: (1, 0),
-                ty: ErrorKind::SpaceInPath
-            })
-        );
+        assert_eq!(r, Err(Error::new((1, 0), ErrorKind::SpaceInPath)));
     }
 
     #[test]
@@ -475,16 +504,16 @@ export THING=$SOME_VAR"
     #[test]
     fn location_adds_correctly() {
         assert_eq!(
-            Location { row: 2, col: 0 } + Location { row: 1, col: 3 },
-            Location { row: 3, col: 3 }
+            Location { line: 2, col: 0 } + Location { line: 1, col: 3 },
+            Location { line: 3, col: 3 }
         );
     }
 
     #[test]
     fn location_subtracts_correctly() {
         assert_eq!(
-            Location { row: 5, col: 3 } - Location { row: 1, col: 2 },
-            Location { row: 4, col: 1 }
+            Location { line: 5, col: 3 } - Location { line: 1, col: 2 },
+            Location { line: 4, col: 1 }
         );
     }
 }
