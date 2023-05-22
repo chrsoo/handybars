@@ -67,3 +67,8 @@ impl<'a> From<&'a str> for Value<'a> {
     }
 }
 impl<'a> Value<'a> {}
+impl From<String> for Value<'static> {
+    fn from(value: String) -> Self {
+        Self::String(Cow::Owned(value))
+    }
+}
