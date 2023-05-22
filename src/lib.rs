@@ -101,17 +101,29 @@ impl<'a> Variable<'a> {
     }
     /// Construct a variable from parts individually
     ///
-    /// Panics: If any string in `parts` is empty
+    /// Panics: If any string in `parts` is empty or if `parts` has no elements
     #[must_use]
     pub fn from_parts(parts: impl IntoIterator<Item = impl Into<VariableEl<'a>>>) -> Self {
-        Self {
-            inner: VariableInner::Segments(
-                parts
-                    .into_iter()
-                    .map(|p| p.into())
-                    .inspect(|s| assert!(!s.is_empty(), "variable part cannot be empty"))
-                    .collect(),
-            ),
+        let mut parts = parts.into_iter();
+        let fst = parts.next();
+        assert!(
+            fst.is_some(),
+            "iterator passed to Variable::from_parts has no elements"
+        );
+        let snd = parts.next();
+        if let Some(snd) = snd {
+            Self {
+                inner: VariableInner::Segments(
+                    [fst.unwrap(), snd]
+                        .into_iter()
+                        .chain(parts)
+                        .map(|p| p.into())
+                        .inspect(|s| assert!(!s.is_empty(), "variable part cannot be empty"))
+                        .collect(),
+                ),
+            }
+        } else {
+            Self::single(fst.unwrap())
         }
     }
     /// Join together two variables
@@ -354,6 +366,16 @@ mod tests {
             Variable::from_parts(split)
         };
         (var, expected)
+    }
+    #[test]
+    fn a_variable_constructed_with_one_sized_vec_becomes_single() {
+        assert_eq!(Variable::from_parts(["a"]), Variable::single("a"));
+    }
+    #[test]
+    #[should_panic]
+    fn constructing_a_variable_with_no_parts_fails() {
+        let a: [&'static str; 0] = [];
+        let _ = Variable::from_parts(a);
     }
 
     proptest! {
