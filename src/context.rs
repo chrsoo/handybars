@@ -101,6 +101,34 @@ impl<'a> Context<'a> {
         self.define(var, value);
         self
     }
+    /// Resolve a variable added with [`define`](Context::define)
+    ///
+    /// This will "drill down" to the lowest point it can get
+    ///
+    /// ```
+    /// # use handybars::{Context, Object, Value};
+    /// # use std::str::FromStr;
+    /// let ctx = Context::new()
+    ///     .with_define("a".parse().unwrap(),
+    ///         Object::new()
+    ///             .with_property("x", "y")
+    ///             .with_property("b", Object::new().with_property("c", "d"))
+    ///     );
+    ///
+    /// assert_eq!(
+    ///     ctx.get_value(&"a.b".parse().unwrap()),
+    ///     Some(&Value::Object(Object::new().with_property("c", "d")))
+    /// );
+    /// assert_eq!(
+    ///     ctx.get_value(&"a.b.c".parse().unwrap()),
+    ///     Some(&Value::String("d".into()))
+    /// );
+    ///
+    /// assert_eq!(
+    ///     ctx.get_value(&"a.x".parse().unwrap()),
+    ///     Some(&Value::String("y".into()))
+    /// );
+    /// ```
     pub fn get_value(&self, var: &Variable<'a>) -> Option<&Value<'a>> {
         match &var.inner {
             crate::VariableInner::Segments(segs) => {
@@ -122,8 +150,7 @@ impl<'a> Context<'a> {
             let token = token?;
             match token {
                 parse::Token::Variable(v) => output.push_str(
-                    &self
-                        .get_value(&v)
+                    self.get_value(&v)
                         .and_then(|v| v.as_string())
                         .ok_or_else(|| Error::MissingVariable(v.into_owned()))?,
                 ),
