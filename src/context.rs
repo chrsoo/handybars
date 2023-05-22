@@ -90,6 +90,21 @@ impl<'a> Context<'a> {
         Ok(output)
     }
 }
+impl<'a> Extend<(Variable<'a>, Value<'a>)> for Context<'a> {
+    /// Extend a `Context` with an iterator of defines
+    ///
+    /// ```
+    /// # use handybars::{Context, Variable, Value};
+    /// let mut ctx = Context::new();
+    /// ctx.extend([(Variable::single("a"), Value::String("b".into()))].into_iter());
+    /// assert_eq!(ctx.render("{{a}}"), Ok("b".to_owned()));
+    /// ```
+    fn extend<T: IntoIterator<Item = (Variable<'a>, Value<'a>)>>(&mut self, iter: T) {
+        for (var, val) in iter {
+            self.define(var, val);
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
