@@ -89,6 +89,25 @@ impl<'a> Context<'a> {
         }
         Ok(output)
     }
+    /// Append another `Context`'s variables
+    ///
+    /// This operates in place, see [`merge`](Context::merge) for a streamable version
+    ///
+    /// ```
+    /// # use handybars::{Context, Variable};
+    /// let mut ctx = Context::new();
+    /// ctx.append(Context::new().with_define(Variable::single("a"), "b"));
+    /// assert_eq!(ctx.render("{{a}}"), Ok("b".to_owned()));
+    /// ```
+    pub fn append(&mut self, other: Self) -> &mut Self {
+        self.vars.extend(other.vars.into_iter());
+        self
+    }
+    /// Stream version of `append`
+    pub fn merge(mut self, other: Self) -> Self {
+        self.append(other);
+        self
+    }
 }
 impl<'a> Extend<(Variable<'a>, Value<'a>)> for Context<'a> {
     /// Extend a `Context` with an iterator of defines
