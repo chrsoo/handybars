@@ -126,6 +126,13 @@ impl<'a> Extend<(Variable<'a>, Value<'a>)> for Context<'a> {
         }
     }
 }
+impl<'a> FromIterator<(Variable<'a>, Value<'a>)> for Context<'a> {
+    fn from_iter<T: IntoIterator<Item = (Variable<'a>, Value<'a>)>>(iter: T) -> Self {
+        let mut me = Self::default();
+        me.extend(iter);
+        me
+    }
+}
 
 #[cfg(test)]
 mod tests {
