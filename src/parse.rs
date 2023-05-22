@@ -5,6 +5,7 @@ type Result<T, E = Error> = std::result::Result<T, E>;
 
 /// Kind of error reported by parsers
 #[derive(Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ErrorKind {
     /// Variable segment is empty
     EmptyVariableSegment,
@@ -42,9 +43,9 @@ pub struct Error {
     /// Offset into source for error
     ///
     /// First is column, second is row
-    pub offset: (usize, usize),
+    offset: (usize, usize),
     /// Type of error
-    pub ty: ErrorKind,
+    ty: ErrorKind,
 }
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -69,6 +70,16 @@ impl Error {
         self.offset.0 += offset.0;
         self.offset.1 += offset.1;
         self
+    }
+
+    /// What kind of error is this
+    pub fn kind(&self) -> &ErrorKind {
+        &self.ty
+    }
+
+    /// Location in the input that this error ocurred
+    pub fn location(&self) -> (usize, usize) {
+        self.offset
     }
 }
 pub(crate) fn is_valid_identifier_ch(ch: u8) -> bool {

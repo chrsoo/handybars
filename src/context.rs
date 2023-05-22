@@ -14,7 +14,7 @@ use crate::{
 /// ctx.define(Variable::single("a"), "b");
 /// assert_eq!(ctx.render("{{ a }}"), Ok("b".to_owned()));
 /// ```
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Context<'a> {
     vars: HashMap<Variable<'a>, Cow<'a, str>>,
 }
