@@ -23,6 +23,7 @@ impl std::error::Error for Error {}
 
 /// Errors that may happen during rendering
 #[derive(Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Error {
     /// Forwarded from parsing
     Parse(parse::Error),
