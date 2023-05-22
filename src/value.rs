@@ -41,6 +41,7 @@ impl<'a> Object<'a> {
         self.add_property(name, value);
         self
     }
+    /// Get previousely set property
     pub fn property(&self, name: &str) -> Option<&Value<'a>> {
         self.values.get(name)
     }
@@ -71,6 +72,8 @@ impl<'a> From<&'a str> for Value<'a> {
     }
 }
 impl<'a> Value<'a> {
+    #[allow(missing_docs)]
+    #[must_use]
     pub fn as_object(&self) -> Option<&Object<'a>> {
         if let Self::Object(v) = self {
             Some(v)
@@ -79,6 +82,8 @@ impl<'a> Value<'a> {
         }
     }
 
+    #[allow(missing_docs)]
+    #[must_use]
     pub fn as_object_mut(&mut self) -> Option<&mut Object<'a>> {
         if let Self::Object(v) = self {
             Some(v)
@@ -87,12 +92,30 @@ impl<'a> Value<'a> {
         }
     }
 
+    #[allow(missing_docs)]
+    #[must_use]
     pub fn as_string(&self) -> Option<&Cow<'a, str>> {
         if let Self::String(v) = self {
             Some(v)
         } else {
             None
         }
+    }
+
+    /// Returns `true` if the value is [`Object`].
+    ///
+    /// [`Object`]: Value::Object
+    #[must_use]
+    pub fn is_object(&self) -> bool {
+        matches!(self, Self::Object(..))
+    }
+
+    /// Returns `true` if the value is [`String`].
+    ///
+    /// [`String`]: Value::String
+    #[must_use]
+    pub fn is_string(&self) -> bool {
+        matches!(self, Self::String(..))
     }
 }
 impl From<String> for Value<'static> {

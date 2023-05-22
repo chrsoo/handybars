@@ -1,7 +1,4 @@
-use std::{
-    borrow::Cow,
-    collections::{HashMap, HashSet},
-};
+use std::{borrow::Cow, collections::HashMap};
 
 use crate::{
     parse::{self, Tokenize},
@@ -32,6 +29,8 @@ pub enum Error {
     Parse(parse::Error),
     /// Tried to expand a template variable that we don't have a value for
     MissingVariable(Variable<'static>),
+    /// Tried to expand an object template variable
+    TriedToExpandObject(Variable<'static>),
 }
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -39,6 +38,9 @@ impl std::fmt::Display for Error {
             Error::Parse(p) => f.write_fmt(format_args!("parse: {p}")),
             Error::MissingVariable(var) => {
                 f.write_fmt(format_args!("missing variable in template: '{var}'"))
+            }
+            Error::TriedToExpandObject(var) => {
+                f.write_fmt(format_args!("tried to expand object variable: '{var}'"))
             }
         }
     }
@@ -142,6 +144,17 @@ impl<'a> Context<'a> {
             crate::VariableInner::Single(s) => self.vars.get(s),
         }
     }
+    /// Expand a single variable
+    pub fn expand(&self, var: &Variable<'a>) -> Result<String> {
+        let val = self
+            .get_value(var)
+            .ok_or_else(|| Error::MissingVariable(var.clone().into_owned()))?;
+        if val.is_object() {
+            Err(Error::TriedToExpandObject(var.clone().into_owned()))
+        } else {
+            Ok(val.as_string().unwrap().clone().into_owned())
+        }
+    }
 
     /// Render a template
     pub fn render<'b>(&self, input: &'b str) -> Result<String> {
@@ -149,11 +162,7 @@ impl<'a> Context<'a> {
         for token in Tokenize::<'b>::new(input) {
             let token = token?;
             match token {
-                parse::Token::Variable(v) => output.push_str(
-                    self.get_value(&v)
-                        .and_then(|v| v.as_string())
-                        .ok_or_else(|| Error::MissingVariable(v.into_owned()))?,
-                ),
+                parse::Token::Variable(v) => output.push_str(&self.expand(&v)?),
                 parse::Token::Str(s) => {
                     output.push_str(s);
                 }
@@ -238,6 +247,14 @@ mod tests {
             ctx.render("{{ notexist }}"),
             Err(Error::MissingVariable(Variable::single("notexist"))),
             "missing defines cause an error"
+        );
+    }
+    #[test]
+    fn trying_to_expand_an_object_variable_is_an_error() {
+        let ctx = Context::new().with_define("a".parse().unwrap(), Object::new());
+        assert_eq!(
+            ctx.expand(&"a".parse().unwrap()),
+            Err(Error::TriedToExpandObject("a".parse().unwrap()))
         );
     }
     #[test]

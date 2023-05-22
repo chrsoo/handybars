@@ -37,5 +37,5 @@ Note that objects cannot be directly expanded:
 ```rust
 use handybars::{Context, Variable, Object, Error};
 let ctx = Context::new().with_define("world".parse().unwrap(), Object::new().with_property("a", "p1"));
-assert_eq!(ctx.render("{{world}}"), Err(Error::MissingVariable(Variable::single("world"))));
+assert_eq!(ctx.render("{{world}}"), Err(Error::TriedToExpandObject(Variable::single("world"))));
 ```
