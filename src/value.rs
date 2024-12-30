@@ -71,6 +71,45 @@ impl<'a> From<&'a str> for Value<'a> {
         Self::String(value.into())
     }
 }
+impl<'a,T> From<Option<T>> for Value<'a>
+where T: Into<Value<'a>> {
+    fn from(value: Option<T>) -> Self {
+        if let Some(v) = value {
+            v.into()
+        } else {
+            Self::String("".into())
+        }
+    }
+}
+macro_rules! value_from_num {
+    ($typ:ident) => {
+        impl<'a> From<$typ> for Value<'a> {
+            fn from(value: $typ) -> Self {
+                Value::String(value.to_string().into())
+            }
+        }
+    };
+}
+value_from_num!(i8);
+value_from_num!(i16);
+value_from_num!(i32);
+value_from_num!(i64);
+value_from_num!(i128);
+value_from_num!(isize);
+
+value_from_num!(u8);
+value_from_num!(u16);
+value_from_num!(u32);
+value_from_num!(u64);
+value_from_num!(u128);
+value_from_num!(usize);
+
+value_from_num!(f32);
+value_from_num!(f64);
+
+value_from_num!(char);
+value_from_num!(bool);
+
 impl<'a> Value<'a> {
     #[allow(missing_docs)]
     #[must_use]
@@ -122,4 +161,66 @@ impl From<String> for Value<'static> {
     fn from(value: String) -> Self {
         Self::String(Cow::Owned(value))
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::borrow::Cow;
+
+    use crate::Value;
+
+    #[test]
+    fn value_from_hex() {
+        assert_eq!(Value::String(Cow::from("42")), From::from(0x0000002a));
+    }
+
+    #[test]
+    fn value_from_option() {
+        let t: Option<&str> = None;
+        assert_eq!(Value::String(Cow::from("")), From::from(t));
+        assert_eq!(Value::String(Cow::from("42")), From::from(Option::Some("42")));
+        assert_eq!(Value::String(Cow::from("42")), From::from(Option::Some(42)));
+    }
+
+    #[test]
+    fn value_from_unsigned_int() {
+        assert_eq!(Value::String(Cow::from("42")), From::from(42u8));
+        assert_eq!(Value::String(Cow::from("42")), From::from(42u16));
+        assert_eq!(Value::String(Cow::from("42")), From::from(42u32));
+        assert_eq!(Value::String(Cow::from("42")), From::from(42u64));
+        assert_eq!(Value::String(Cow::from("42")), From::from(42u128));
+    }
+
+    #[test]
+    fn value_from_signed_int() {
+        assert_eq!(Value::String(Cow::from("-42")), From::from(-42i8));
+        assert_eq!(Value::String(Cow::from("-42")), From::from(-42i16));
+        assert_eq!(Value::String(Cow::from("-42")), From::from(-42i32));
+        assert_eq!(Value::String(Cow::from("-42")), From::from(-42i64));
+        assert_eq!(Value::String(Cow::from("-42")), From::from(-42i128));
+    }
+
+    #[test]
+    fn value_from_bool() {
+        assert_eq!(Value::String(Cow::from("true")), From::from(true));
+        assert_eq!(Value::String(Cow::from("false")), From::from(false));
+    }
+
+    #[test]
+    fn value_from_ptr() {
+        assert_eq!(Value::String(Cow::from("42")), From::from(42usize));
+        assert_eq!(Value::String(Cow::from("42")), From::from(42isize));
+    }
+
+    #[test]
+    fn value_from_float() {
+        assert_eq!(Value::String(Cow::from("42.242")), From::from(42.242f32));
+        assert_eq!(Value::String(Cow::from("42.242")), From::from(42.242f64));
+    }
+
+    #[test]
+    fn value_from_char() {
+        assert_eq!(Value::String(Cow::from("*")), From::from('*'));
+    }
+
 }

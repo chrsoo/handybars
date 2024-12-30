@@ -215,7 +215,7 @@ impl<'a> Context<'a> {
     /// assert_eq!(ctx.get_value(&Variable::single("a")), Some(&Value::String("b".into())));
     /// ```
     pub fn append(&mut self, other: Self) -> &mut Self {
-        self.vars.extend(other.vars.into_iter());
+        self.vars.extend(other.vars);
         self
     }
     /// Stream version of `append`
