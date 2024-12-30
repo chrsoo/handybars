@@ -1,0 +1,15 @@
+[package]
+name = "handybars_attribute"
+version = "0.1.0"
+edition = "2021"
+authors = [ "chrsoo" ]
+license = "MIT"
+description = "Attribute macro for annotating structs and enums as values"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = {version = "2.0", features = ["full"]}
+quote = "1.0"
+handybars = { path = ".."}

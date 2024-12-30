@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::BTreeMap, ffi::{c_int, c_uint}};
+use std::{borrow::Cow, collections::BTreeMap};
 
 /// Object value with 0 or more properties
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
@@ -166,7 +166,6 @@ impl From<String> for Value<'static> {
 #[cfg(test)]
 mod tests {
     use std::borrow::Cow;
-
     use crate::Value;
 
     #[test]
@@ -222,5 +221,4 @@ mod tests {
     fn value_from_char() {
         assert_eq!(Value::String(Cow::from("*")), From::from('*'));
     }
-
 }
