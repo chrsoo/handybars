@@ -21,7 +21,7 @@ enum VariableInner<'a> {
     Segments(Vec<VariableEl<'a>>),
     Single(VariableEl<'a>),
 }
-impl<'a> VariableInner<'a> {
+impl VariableInner<'_> {
     fn into_owned(self) -> VariableInner<'static> {
         match self {
             VariableInner::Segments(s) => {
@@ -156,7 +156,7 @@ impl<'a> Variable<'a> {
         }
     }
 }
-impl<'a> std::fmt::Display for Variable<'a> {
+impl std::fmt::Display for Variable<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.inner {
             VariableInner::Segments(s) => f.write_str(&s.join(".")),
@@ -201,7 +201,7 @@ fn parse_with_terminator(
         Ok(seg) => {
             let len = seg.len();
             let seg_s = parse::str_from_utf8(seg);
-            #[allow(clippy::blocks_in_if_conditions)]
+            #[allow(clippy::blocks_in_conditions)]
             Ok(
                 if {
                     let mut found_space = false;
