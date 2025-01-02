@@ -204,23 +204,28 @@ impl<'a> Context<'a> {
         }
         Ok(output)
     }
-    /// Append another `Context`'s variables
+    /// Append another `Context`'s cloned variables.
     ///
-    /// This operates in place, see [`merge`](Context::merge) for a streamable version
-    ///
+    /// See [`merge`](Context::merge) for a chained version that consumes the provided context.q
     /// ```
     /// # use handybars::{Context, Variable, Value};
+    /// let src = Context::new().with_define(Variable::single("a"), "b");
     /// let mut ctx = Context::new();
-    /// ctx.append(Context::new().with_define(Variable::single("a"), "b"));
+    /// ctx.append(&src);
+    /// assert_eq!(src.get_value(&Variable::single("a")), Some(&Value::String("b".into())));
     /// assert_eq!(ctx.get_value(&Variable::single("a")), Some(&Value::String("b".into())));
     /// ```
-    pub fn append(&mut self, other: Self) -> &mut Self {
-        self.vars.extend(other.vars.into_iter());
-        self
+    pub fn append(&mut self, other: &Self) {
+        self.vars.extend(other.vars.clone());
     }
-    /// Stream version of `append`
+    /// Chained version of `append` consuming the merged context.
+    /// ```
+    /// # use handybars::{Context, Variable, Value};
+    /// let src = Context::new().with_define(Variable::single("a"), "b");
+    /// let mut ctx = Context::new().merge(src);
+    /// assert_eq!(ctx.get_value(&Variable::single("a")), Some(&Value::String("b".into())));
     pub fn merge(mut self, other: Self) -> Self {
-        self.append(other);
+        self.vars.extend(other.vars);
         self
     }
 }
