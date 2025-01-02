@@ -113,7 +113,7 @@ impl<'a> Context<'a> {
                             o.add_property(s, value.take().unwrap());
                         }
                     })
-                    .or_insert(value.take().unwrap().into());
+                    .or_insert_with(|| value.take().unwrap().into());
             }
         }
         self
@@ -301,5 +301,13 @@ mod tests {
         .collect();
         assert_eq!(ctx.render("{{a}}"), Ok("b".to_owned()));
         assert_eq!(ctx.render("{{b}}"), Ok("c".to_owned()));
+    }
+    #[test]
+    fn redundant_definition_panics() {
+
+        Context::new()
+            .define(Variable::single("a"), "b")
+            .define(Variable::single("a"), "c");
+
     }
 }
