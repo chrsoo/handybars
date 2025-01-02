@@ -303,11 +303,10 @@ mod tests {
         assert_eq!(ctx.render("{{b}}"), Ok("c".to_owned()));
     }
     #[test]
-    fn redundant_definition_panics() {
-
-        Context::new()
-            .define(Variable::single("a"), "b")
-            .define(Variable::single("a"), "c");
-
+    fn double_defintition_should_overwrite() {
+        let ctx = Context::new()
+        .with_define(Variable::single("a"), "b")
+        .with_define(Variable::single("a"), "c");
+        assert_eq!(ctx.render("{{a}}"), Ok("c".to_owned()));
     }
 }
