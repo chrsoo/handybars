@@ -88,5 +88,5 @@ pub fn handybars_value(attr: TokenStream, item: TokenStream) -> TokenStream {
         _ => panic!("Handybar `value` macro only supports enum and struct items"),
         // _ => ast.into_token_stream(),
     };
-    return gen.into();
+    gen.into()
 }
