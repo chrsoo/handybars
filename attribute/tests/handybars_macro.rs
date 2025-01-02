@@ -38,7 +38,7 @@ mod macro_tests {
     enum SimpleEnumProp {
         A,
         B,
-        C,
+        // C,
     }
 
     // #[handybar_value]
