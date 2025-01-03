@@ -98,3 +98,9 @@ impl<'v> Into<handybars::Value<'v>> for SimpleEnumProp {
     }
 }
 ```
+> [!NOTE]
+> Why use an attribute and not a derive process macro?
+>
+> Derive Macros do not support implementing traits with generic
+> arguments. In this case we need to implement `Into<Value>` for the annotated enum or
+> struct.
