@@ -9,6 +9,8 @@ only `{{ variable }}`. If you need actual handlebars support consider the
 
 It has no dependencies and is designed to have a very simple API.
 
+A simple [companion attribute macro](attribute/README.md) allows you to automatically turn enums and
+structs into Handybar [Value](https://docs.rs/handybars/latest/handybars/enum.Value.html) variants.
 
 ## Usage
 

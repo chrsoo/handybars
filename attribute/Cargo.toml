@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 authors = [ "chrsoo" ]
 license = "MIT"
-description = "Attribute macro for annotating structs and enums as values"
+description = "Attribute macro for annotating structs and enums as Handybars values"
 
 [lib]
 proc-macro = true
