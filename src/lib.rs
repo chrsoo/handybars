@@ -11,6 +11,8 @@ mod value;
 
 pub use context::{Context, Error};
 pub use value::{Object, Value};
+#[cfg(feature = "macros")]
+pub use handybars_macros::handybars_value;
 
 use crate::parse::{str_from_utf8, ErrorKind};
 

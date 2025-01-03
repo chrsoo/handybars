@@ -22,8 +22,8 @@ jobs:
           override: true
           components: clippy
       - name: build
-        run: cargo build --tests --workspace
+        run: cargo build --tests --workspace --all-features
       - name: clippy
-        run: cargo clippy --tests --workspace
+        run: cargo clippy --tests --workspace --all-features
       - name: test
-        run: cargo test --workspace
+        run: cargo test --workspace --all-features
