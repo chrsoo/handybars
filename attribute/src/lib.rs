@@ -23,7 +23,6 @@ pub fn handybars_value(attr: TokenStream, item: TokenStream) -> TokenStream {
                 .iter()
                 .map(|field| &field.ident)
                 .collect::<Vec<&Ident>>();
-            // let name = format_ident!("{}", item_enum.ident);
             let name = &item.ident;
 
             let mut gen_clone = item.generics.clone();
@@ -39,8 +38,9 @@ pub fn handybars_value(attr: TokenStream, item: TokenStream) -> TokenStream {
             let (_, type_gen, where_clause) = item.generics.split_for_impl();
 
             quote! {
+                #item
+
                 impl #impl_gen Into<handybars::Value<#lt>> for #name #type_gen #where_clause {
-                // impl<'v> Into<handybars::Value<'v>> for #name {
                     fn into(self) -> handybars::Value<#lt> {
                         match self {
                         #(
@@ -49,7 +49,7 @@ pub fn handybars_value(attr: TokenStream, item: TokenStream) -> TokenStream {
                         }
                     }
                 }
-                #item
+
             }
         }
         syn::Item::Struct(item) => {
@@ -72,8 +72,9 @@ pub fn handybars_value(attr: TokenStream, item: TokenStream) -> TokenStream {
             let (_, type_gen, where_clause) = item.generics.split_for_impl();
 
             quote! {
+                #item
+
                 impl #impl_gen Into<handybars::Value<#lt>> for #name #type_gen #where_clause {
-                // impl<'v> Into<handybars::Value<'v>> for #name {
                     fn into(self) -> handybars::Value<#lt> {
                         let mut obj = handybars::Object::new();
                         #(
@@ -82,11 +83,9 @@ pub fn handybars_value(attr: TokenStream, item: TokenStream) -> TokenStream {
                         handybars::Value::Object(obj)
                     }
                 }
-                #item
             }
         }
-        _ => panic!("Handybar `value` macro only supports enum and struct items"),
-        // _ => ast.into_token_stream(),
+        _ => panic!("macro only supports enum and struct items"),
     };
     gen.into()
 }

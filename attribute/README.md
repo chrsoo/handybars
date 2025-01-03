@@ -4,6 +4,17 @@ This is an attribute macro that implements the `Into<Value>` trait for
 annotated structs and enums used with [Handybars](https://github.com/0x00002a/handybars).
 
 ## Usage
+Include the handybars_attribute depenendcy in your `Cargo.toml` dependencies:
+```toml
+[dependencies]
+handybars = "0.2"
+handybars_attribute = "0.2"
+```
+Import the handybars and the macro in your rust code:
+```rust
+use handybars::{Context, Variable};
+use handybars_attribute::handybars_value;
+```
 Use simple enums as [Value::String](https://docs.rs/handybars/latest/handybars/enum.Value.html) variants:
 ```rust
 #[handybars_value]
@@ -55,16 +66,13 @@ assert_eq!("f33_val", c.render("{{ obj.prop_3.field_3 }}").unwrap());
 The running code for the above can be found as a [macro test case](tests/handybars_macro.rs).
 
 > [!WARNING]
-> Enums with variant values are currently **not supported**.
-
-The following code will not compile:
+> Enums with variant values are currently **not supported**. Enum with variants like the following will not compile:
 ```rust
 #[handybar_value]
 enum ComplexEnumProp<'a> {
-    Var1,
-    Var2(SimpleEnumProp),
-    Var3(String),
-    Var4(StructVal<'a>),
+    Var1(SimpleEnumProp),
+    Var2(String),
+    Var3(StructVal<'a>),
 }
 ```
 ## Implementation
@@ -79,7 +87,14 @@ enum SimpleEnumProp {
     B,
 }
 ```
-... will result in the following generated code:
+... will result in the following code being generated for the `SimpleEnumProp`:
 ```rust
-
+impl<'v> Into<handybars::Value<'v>> for SimpleEnumProp {
+    fn into(self) -> handybars::Value<'v> {
+        match self {
+            SimpleEnumProp::A => handybars::Value::String(std::borrow::Cow::from("A")),
+            SimpleEnumProp::B => handybars::Value::String(std::borrow::Cow::from("B")),
+        }
+    }
+}
 ```
