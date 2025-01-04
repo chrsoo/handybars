@@ -6,7 +6,7 @@ to the main [Handybars crate](https://github.com/0x00002a/handybars) for informa
 # Implementation Notes
 Annotating an enum or a struct with `#[handybars_value]` generates `Into<Value>` implementations
 for the item. For example, the `#[handybars_value]` attribute on the enum:
-```rust
+```text
 #[handybars_value]
 enum SimpleEnumProp {
     A,
@@ -14,7 +14,7 @@ enum SimpleEnumProp {
 }
 ```
 ... will result in the following code being generated for the `SimpleEnumProp`:
-```rust
+```text
 impl<'v> Into<handybars::Value<'v>> for SimpleEnumProp {
     fn into(self) -> handybars::Value<'v> {
         match self {
