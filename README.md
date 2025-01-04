@@ -161,8 +161,7 @@ assert_eq!("f33_val", c.render("{{ obj.prop_3.field_3 }}").unwrap());
 ```
 The running code for the above can be found as a [macro test case](tests/handybars_macro.rs).
 
-> [!WARNING]
-> Enums with variant values are currently **not supported**. Enum with variants like the following will not compile:
+Enums with variant values are currently **not supported**. Enum with variants like the following **will not compile**:
 ```compile_fail
 #[handybar_value]
 enum ComplexEnumProp<'a> {

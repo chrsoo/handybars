@@ -1,15 +1,11 @@
-# Handybars Attribute
-
+# Overview
 This is an attribute macro that implements the `Into<Value>` trait for
-annotated structs and enums used with [Handybars](https://github.com/0x00002a/handybars).
+annotated structs and enums to be used with [Handybars](https://github.com/0x00002a/handybars). Please refer
+to the main [Handybars crate](https://github.com/0x00002a/handybars) for information on how to use!
 
-Please refer to the main [Handybars crate](https://github.com/0x00002a/handybars) for information on how to use!
-
-## Implementation Notes
+# Implementation Notes
 Annotating an enum or a struct with `#[handybars_value]` generates `Into<Value>` implementations
-for the item.
-
-For example, the following enum...
+for the item. For example, the `#[handybars_value]` attribute on the enum:
 ```rust
 #[handybars_value]
 enum SimpleEnumProp {
@@ -28,9 +24,9 @@ impl<'v> Into<handybars::Value<'v>> for SimpleEnumProp {
     }
 }
 ```
-> [!INFO]
-> Why use an attribute and not a derive process macro?
->
-> Derive Macros do not support implementing traits with generic
-> arguments. In this case we need to implement `Into<Value>` for the annotated enum or
-> struct.
+
+## Why use an attribute and not a derive process macro?
+
+Derive Macros do not support implementing traits with generic arguments. In this case we
+need to implement `Into<Value>` for the annotated enum or struct. If `Value` had been a
+trait and not an enum, a derive macro would have been appropriate.

@@ -4,6 +4,7 @@ version = "0.2.0"
 edition = "2021"
 authors = [ "chrsoo" ]
 license = "MIT"
+readme = "README.md"
 description = "Attribute macro for annotating structs and enums as Handybars values"
 
 [lib]
