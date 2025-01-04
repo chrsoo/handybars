@@ -163,7 +163,7 @@ The running code for the above can be found as a [macro test case](tests/handyba
 
 Enums with variant values are currently **not supported**. Enum with variants like the following **will not compile**:
 ```compile_fail
-#[handybar_value]
+#[handybars_value]
 enum ComplexEnumProp<'a> {
     Var1(SimpleEnumProp),
     Var2(String),
